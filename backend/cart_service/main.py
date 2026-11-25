@@ -1,4 +1,7 @@
+import asyncio
+import logging
 from contextlib import asynccontextmanager
+from datetime import UTC
 from typing import Annotated
 
 from bson import ObjectId
@@ -12,13 +15,42 @@ from backend.service_http import ProductCodes, authenticate, call_service, requi
 
 from . import persistence
 
+logger = logging.getLogger(__name__)
+CartId = Annotated[str, Field(pattern=r"^[a-fA-F0-9]{24}$")]
+
+
+def release_due_carts(database):
+    for document in persistence.due_carts(database):
+        try:
+            persistence.expire_cart(database, document["_id"])
+        except (PyMongoError, RuntimeError):
+            logger.exception("Falha ao expirar o carrinho %s", document["_id"])
+
+
+async def run_expiration(database, stop):
+    while not stop.is_set():
+        try:
+            await asyncio.to_thread(release_due_carts, database)
+        except PyMongoError:
+            logger.exception("Falha ao consultar os carrinhos vencidos")
+        try:
+            await asyncio.wait_for(stop.wait(), timeout=15)
+        except TimeoutError:
+            pass
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     with mongo_client() as client:
         app.state.database = client.compras
         persistence.initialize_cart(app.state.database)
-        yield
+        stop = asyncio.Event()
+        worker = asyncio.create_task(run_expiration(app.state.database, stop))
+        try:
+            yield
+        finally:
+            stop.set()
+            await worker
 
 
 app = FastAPI(title="TechParts — Carrinho e Estoque", lifespan=lifespan)
@@ -39,6 +71,11 @@ async def database_unavailable(_request: Request, _error: PyMongoError):
 class Quantity(BaseModel):
     model_config = ConfigDict(extra="forbid")
     quantity: int = Field(ge=0, le=1_000_000, strict=True)
+    cartId: CartId | None
+
+
+class CartActivity(BaseModel):
+    cartId: CartId
 
 
 class StockTotal(BaseModel):
@@ -89,19 +126,40 @@ def update_stock(request: Request, code: int, data: StockTotal):
 
 @app.get("/api/carrinho")
 def get_cart(request: Request, user_id: Customer):
-    cart = request.app.state.database.carrinhos.find_one(persistence.active_cart(user_id))
+    database = request.app.state.database
+    cart = persistence.get_active_cart(database, user_id)
     items = cart["itens"] if cart else []
     refs = product_refs([item["produto_id"] for item in items])
-    return {"items": [
-        {"id": item["produto_id"], "quantity": item["quantidade"],
-         "product": refs.get(item["produto_id"])}
-        for item in items
-    ]}
+    return {
+        "id": str(cart["_id"]) if cart else None,
+        "expired": cart is None and persistence.has_expired_cart(database, user_id),
+        "expiresAt": cart["expira_em"].replace(tzinfo=UTC).isoformat() if cart else None,
+        "items": [
+            {"id": item["produto_id"], "quantity": item["quantidade"],
+             "product": refs.get(item["produto_id"])}
+            for item in items
+        ],
+    }
+
+
+@app.post("/api/carrinho/iniciar", status_code=204)
+def start_cart(request: Request, user_id: Customer, _body: dict):
+    persistence.start_cart(request.app.state.database, user_id)
+    return Response(status_code=204)
+
+
+@app.put("/api/carrinho/atividade", status_code=204)
+def update_activity(request: Request, user_id: Customer, data: CartActivity):
+    persistence.touch_cart(request.app.state.database, user_id, ObjectId(data.cartId))
+    return Response(status_code=204)
 
 
 @app.put("/api/carrinho/itens/{code}", status_code=204)
 def update_cart(request: Request, user_id: Customer, code: int, data: Quantity):
     product = product_refs([code]).get(code) if data.quantity else None
     active = bool(product and product["active"])
-    persistence.set_cart_quantity(request.app.state.database, user_id, code, data.quantity, active)
+    cart_id = ObjectId(data.cartId) if data.cartId else None
+    persistence.set_cart_quantity(
+        request.app.state.database, user_id, cart_id, code, data.quantity, active,
+    )
     return Response(status_code=204)

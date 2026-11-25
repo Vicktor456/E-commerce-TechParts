@@ -1,6 +1,11 @@
 import type { Product } from "./catalog";
 
-export type Cart = { items: { id: number; quantity: number; product: Product | null }[] };
+export type Cart = {
+  id: string | null;
+  expired: boolean;
+  expiresAt: string | null;
+  items: { id: number; quantity: number; product: Product | null }[];
+};
 type Stock = Pick<Product, "total" | "baseReserved">;
 
 export class CartError extends Error {
@@ -30,8 +35,10 @@ const put = (body: object): RequestInit => ({
 export const purchases = {
   cart: async (signal: AbortSignal): Promise<Cart> =>
     (await request("/api/carrinho", { signal })).json(),
-  setQuantity: (id: number, quantity: number) =>
-    request(`/api/carrinho/itens/${id}`, put({ quantity })),
+  setQuantity: (cartId: string | null, id: number, quantity: number) =>
+    request(`/api/carrinho/itens/${id}`, put({ cartId, quantity })),
+  touch: (cartId: string) => request("/api/carrinho/atividade", put({ cartId })),
+  start: () => request("/api/carrinho/iniciar", { ...put({}), method: "POST" }),
   setStock: async (id: number, total: number): Promise<Stock> =>
     (await request(`/api/estoque/${id}`, put({ total }))).json(),
 };

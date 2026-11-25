@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
 import { auth, AuthError } from "./auth";
 import type { User } from "./auth";
@@ -451,7 +451,7 @@ function ProductArt({ product, large = false }: { product: Product; large?: bool
   );
 }
 
-const emptyCart: Cart = { items: [] };
+const emptyCart: Cart = { id: null, expired: false, expiresAt: null, items: [] };
 const technicalFields = (category: string) =>
   category === "Placas-mãe"
     ? ["Soquete", "Chipset", "Tipo de memória"]
@@ -493,6 +493,7 @@ export default function App() {
   const [cartState, setCartState] = useState<{ owner: string; data: Cart; status: LoadStatus }>();
   const [cartAttempt, setCartAttempt] = useState(0);
   const [cartBusy, setCartBusy] = useState(false);
+  const lastCartActivity = useRef<{ id: string; at: number }>(null);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<Category | "">("");
   const [maxPrice, setMaxPrice] = useState<number | null>(null);
@@ -539,6 +540,7 @@ export default function App() {
   const cart = ownCart?.data ?? emptyCart;
   const cartStatus = ownCart?.status ?? "loading";
   const cartCount = cart.items.reduce((sum, item) => sum + item.quantity, 0);
+  const affectedItems = cart.items.filter((item) => !item.product?.active);
   const cartTotal = cart.items.reduce((sum, item) => sum + (item.product?.price ?? 0) * item.quantity, 0);
   const available = (p: Product) => Math.max(0, p.total - p.baseReserved);
   const notify = (message: string) => setToast(message);
@@ -673,6 +675,35 @@ export default function App() {
     return () => controller.abort();
   }, [cartOwner, isCart, cartAttempt]);
   useEffect(() => {
+    if (!isCart || !cartOwner || !cart.id) return;
+    // Poll reads both expiration and product status without renewing the reservation.
+    const timer = window.setInterval(() => setCartAttempt((attempt) => attempt + 1), 15_000);
+    return () => window.clearInterval(timer);
+  }, [isCart, cartOwner, cart.id]);
+  useEffect(() => {
+    if (!cartOwner || !cart.id) return;
+    const cartId = cart.id;
+    const markActivity = (event: Event) => {
+      if (!event.isTrusted) return;
+      const now = Date.now();
+      const previous = lastCartActivity.current;
+      if (previous?.id === cartId && now - previous.at < 10_000) return;
+      lastCartActivity.current = { id: cartId, at: now };
+      void purchases.touch(cartId).catch((error) => {
+        if (error instanceof CartError && error.status === 409)
+          setCartAttempt((attempt) => attempt + 1);
+      });
+    };
+    window.addEventListener("click", markActivity, true);
+    window.addEventListener("keydown", markActivity, true);
+    window.addEventListener("popstate", markActivity);
+    return () => {
+      window.removeEventListener("click", markActivity, true);
+      window.removeEventListener("keydown", markActivity, true);
+      window.removeEventListener("popstate", markActivity);
+    };
+  }, [cartOwner, cart.id]);
+  useEffect(() => {
     setPage(1);
   }, [search, category, maxPrice, minPrice, tech, onlyAvailable, sort]);
   const resetFilters = () => {
@@ -730,7 +761,7 @@ export default function App() {
     if (!cartOwner || cartBusy || cartStatus !== "ready") return;
     setCartBusy(true);
     try {
-      await purchases.setQuantity(id, quantity);
+      await purchases.setQuantity(cart.id, id, quantity);
       if (added) {
         notify("Produto adicionado ao carrinho e reservado.");
         go("carrinho");
@@ -749,6 +780,22 @@ export default function App() {
       setCartBusy(false);
     }
   };
+  const startNewCart = async () => {
+    if (cartBusy) return;
+    setCartBusy(true);
+    try {
+      await purchases.start();
+      setCartState((previous) => previous?.owner === cartOwner && previous
+        ? { ...previous, status: "loading" }
+        : previous);
+      setCartAttempt((attempt) => attempt + 1);
+      go("catalogo");
+    } catch (error) {
+      notify(error instanceof CartError ? error.message : "Não foi possível iniciar outro carrinho.");
+    } finally {
+      setCartBusy(false);
+    }
+  };
   const addToCart = (p: Product) => {
     if (!user) {
       login(`produto/${p.id}`);
@@ -756,6 +803,10 @@ export default function App() {
     }
     if (user.role === "admin") {
       notify("Entre com uma conta de cliente para reservar produtos.");
+      return;
+    }
+    if (cart.expired) {
+      go("carrinho");
       return;
     }
     const current = cart.items.find((i) => i.id === p.id)?.quantity || 0;
@@ -1358,7 +1409,7 @@ export default function App() {
                     {available(selected) ? "Adicionar ao carrinho" : "Produto indisponível"}
                   </button>
                   <div className="reservation-note">
-                    <Icon name="cart" size={17} /> Remover o item do carrinho libera a reserva.
+                    <Icon name="clock" size={17} /> Reservas expiram após 30 minutos de inatividade.
                   </div>
                   {user?.role === "client" && cartStatus === "error" && (
                     <button className="text-button" onClick={() => setCartAttempt((attempt) => attempt + 1)}>
@@ -1495,6 +1546,27 @@ export default function App() {
                   </button>
                 </div>
               )}
+              {cartStatus === "ready" && cart.expired && (
+                <div className="alert warning" role="status">
+                  <Icon name="clock" />
+                  <div>
+                    <strong>Seu carrinho expirou.</strong>
+                    <p>As unidades reservadas foram liberadas após 30 minutos de inatividade.</p>
+                  </div>
+                  <button className="secondary" disabled={cartBusy} onClick={startNewCart}>
+                    Iniciar novo carrinho
+                  </button>
+                </div>
+              )}
+              {!!affectedItems.length && (
+                <div className="alert warning" role="status">
+                  <Icon name="info" />
+                  <div>
+                    <strong>Há produtos removidos do catálogo neste carrinho.</strong>
+                    <p>{affectedItems.map((item) => item.product?.name ?? `Produto ${item.id}`).join(", ")}</p>
+                  </div>
+                </div>
+              )}
               {cart.items.length ? (
                 <>
                   <div className="cart-layout">
@@ -1614,7 +1686,7 @@ export default function App() {
                     </aside>
                   </div>
                 </>
-              ) : cartStatus === "ready" && (
+              ) : cartStatus === "ready" && !cart.expired && (
                 <div className="empty-state surface">
                   <span className="empty-icon">
                     <Icon name="cart" size={35} />

@@ -65,7 +65,9 @@ O cadastro e o login usam `auth.usuarios`, com índice único no e-mail normaliz
 
 - O Cart Service persiste os itens em `compras.carrinhos` e o saldo em `compras.estoques`, vinculados ao código estável do produto do catálogo. A primeira carga importa o estoque total de demonstração com zero reservas.
 - Adicionar, alterar ou remover um item ajusta a reserva na mesma transação. O cliente acessa seu próprio carrinho, e apenas administradores podem ajustar o estoque. Produtos ativos com saldo zero continuam listados como indisponíveis.
-- Ao abrir o carrinho, os preços vêm do catálogo. Remover itens libera as reservas. A expiração automática é uma etapa posterior.
+- Ao abrir o carrinho, os preços e a situação dos produtos vêm do catálogo. A tela identifica itens removidos. Remover um item libera sua reserva.
+- O servidor encerra o carrinho após 30 minutos de inatividade. Cliques, uso do teclado ou alterações no carrinho renovam o prazo. Consultas automáticas da tela apenas leem o estado.
+- O Cart Service procura carrinhos vencidos a cada 15 segundos e libera as reservas em uma transação com o encerramento. Uma gravação verifica o prazo e o identificador do carrinho, mesmo entre duas execuções da rotina. Após o vencimento, escolha **Iniciar novo carrinho**.
 - Documentação da API de compras em `http://127.0.0.1:8002/docs`.
 
 O proxy Vite encaminha as chamadas públicas aos três serviços. Em uma implantação com HTTPS, configure `AUTH_COOKIE_SECURE=1` e encaminhe `/api/auth`, `/api/catalogo`, `/api/carrinho` e `/api/estoque` pelo mesmo domínio do frontend. Mantenha as rotas `/_interno` na rede dos serviços. Para alterar as URLs internas, configure `AUTH_SERVICE_URL`, `CATALOG_SERVICE_URL` e `CART_SERVICE_URL` nos serviços que as consultam.
