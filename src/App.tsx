@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
 import { auth, AuthError } from "./auth";
 import type { User } from "./auth";
-import { catalog, CatalogError, catalogPageSize, historyPageSize } from "./catalog";
+import { catalog, CatalogError, catalogPageSize } from "./catalog";
 import type { CatalogFilters, Category, Product } from "./catalog";
 import { CartError, purchases } from "./cart";
 import type { Cart } from "./cart";
@@ -482,7 +482,7 @@ export default function App() {
   const isAdmin = route.startsWith("admin/");
   const [catalogStatus, setCatalogStatus] = useState<LoadStatus>("loading");
   const [catalogAttempt, setCatalogAttempt] = useState(0);
-  const [catalogPage, setCatalogPage] = useState({ items: [] as Product[], total: 0 });
+  const [catalogPage, setCatalogPage] = useState<Awaited<ReturnType<typeof catalog.list>>>({ items: [], total: 0 });
   const [filters, setFilters] = useState<CatalogFilters>({ counts: {}, specs: {}, maxPrice: 0 });
   const [details, setDetails] = useState<{ id: number; status: LoadStatus; product?: Product }>();
   const [adminProducts, setAdminProducts] = useState<Product[]>([]);
@@ -500,8 +500,12 @@ export default function App() {
   const [minPrice, setMinPrice] = useState("");
   const [tech, setTech] = useState<Record<string, string[]>>({});
   const [onlyAvailable, setOnlyAvailable] = useState(false);
-  const [page, setPage] = useState(1);
-  const [sort, setSort] = useState("relevance");
+  const [navigation, setNavigation] = useState<{ key: string; cursors: (string | null)[] }>();
+  const [sort, setSort] = useState("low");
+  const filterKey = JSON.stringify([search, category, minPrice, maxPrice, onlyAvailable, tech, sort]);
+  const cursors = navigation?.key === filterKey ? navigation.cursors : [null];
+  const page = cursors.length;
+  const cursor = cursors[page - 1];
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [toast, setToast] = useState("");
   const [returnTo, setReturnTo] = useState("catalogo");
@@ -603,12 +607,11 @@ export default function App() {
     if (!isCatalog) return;
     const controller = new AbortController();
     setCatalogStatus("loading");
-    catalog.list({ search, category, minPrice, maxPrice, onlyAvailable, tech, sort, page }, controller.signal)
+    catalog.list({ search, category, minPrice, maxPrice, onlyAvailable, tech, sort, cursor }, controller.signal)
       .then((result) => {
         if (controller.signal.aborted) return;
-        const lastPage = Math.max(1, Math.ceil(result.total / catalogPageSize));
-        if (page > lastPage) {
-          setPage(lastPage);
+        if (!result.items.length && cursor) {
+          setNavigation(undefined);
           return;
         }
         setCatalogPage(result);
@@ -620,7 +623,7 @@ export default function App() {
         }
       });
     return () => controller.abort();
-  }, [isCatalog, search, category, minPrice, maxPrice, onlyAvailable, tech, sort, page, catalogAttempt]);
+  }, [isCatalog, search, category, minPrice, maxPrice, onlyAvailable, tech, sort, cursor, catalogAttempt]);
 
   useEffect(() => {
     if (!isCatalog) return;
@@ -703,9 +706,6 @@ export default function App() {
       window.removeEventListener("popstate", markActivity);
     };
   }, [cartOwner, cart.id]);
-  useEffect(() => {
-    setPage(1);
-  }, [search, category, maxPrice, minPrice, tech, onlyAvailable, sort]);
   const resetFilters = () => {
     setSearch("");
     setCategory("");
@@ -713,14 +713,16 @@ export default function App() {
     setMinPrice("");
     setTech({});
     setOnlyAvailable(false);
-    setPage(1);
+    setNavigation(undefined);
   };
   const changeCategory = (value: Category | "") => {
     setCategory(value);
     setTech({});
   };
-  const pageCount = Math.ceil(catalogPage.total / catalogPageSize);
-  const firstPageLink = Math.max(1, Math.min(page - 2, pageCount - 4));
+  const turnCatalogPage = (next: (string | null)[]) => {
+    setNavigation({ key: filterKey, cursors: next });
+    document.getElementById("catalog")?.scrollIntoView({ behavior: "smooth" });
+  };
   const updateProduct = (product: Product) => {
     setAdminProducts((old) => {
       const previous = old.find((item) => item.id === product.id);
@@ -1199,7 +1201,7 @@ export default function App() {
                     onChange={(e) => setSort(e.target.value)}
                     aria-label="Ordenar produtos"
                   >
-                    <option value="relevance">Relevância</option>
+                    <option value="relevance">Ordem do catálogo</option>
                     <option value="low">Menor preço</option>
                     <option value="high">Maior preço</option>
                     <option value="name">Nome A–Z</option>
@@ -1289,38 +1291,21 @@ export default function App() {
                   <div className="pagination">
                     <span>
                       Mostrando {Math.min((page - 1) * catalogPageSize + 1, catalogPage.total)}–
-                      {Math.min(page * catalogPageSize, catalogPage.total)} de {catalogPage.total} produtos
+                      {Math.min((page - 1) * catalogPageSize + catalogPage.items.length, catalogPage.total)} de {catalogPage.total} produtos
                     </span>
                     <div>
                       <button
                         disabled={page === 1}
-                        onClick={() => setPage(page - 1)}
+                        onClick={() => turnCatalogPage(cursors.slice(0, -1))}
                         aria-label="Página anterior"
                       >
                         <Icon name="chevron" className="rotate" size={15} />
                       </button>
-                      {Array.from({ length: Math.min(pageCount, 5) }, (_, i) => firstPageLink + i).map((number) => (
-                        <button
-                          key={number}
-                          className={page === number ? "current" : ""}
-                          aria-current={page === number ? "page" : undefined}
-                          onClick={() => {
-                            setPage(number);
-                            document
-                              .getElementById("catalog")
-                              ?.scrollIntoView({ behavior: "smooth" });
-                          }}
-                        >
-                          {number}
-                        </button>
-                      ))}
+                      <span aria-current="page">Página {page}</span>
                       <button
-                        disabled={page >= pageCount}
+                        disabled={!catalogPage.nextCursor}
                         onClick={() => {
-                          setPage(page + 1);
-                          document
-                            .getElementById("catalog")
-                            ?.scrollIntoView({ behavior: "smooth" });
+                          if (catalogPage.nextCursor) turnCatalogPage([...cursors, catalogPage.nextCursor]);
                         }}
                         aria-label="Próxima página"
                       >
@@ -2270,7 +2255,10 @@ function Field({
 
 function ProductHistory({ productId, admin = false }: { productId: number; admin?: boolean }) {
   const [period, setPeriod] = useState("all");
-  const [page, setPage] = useState(1);
+  const [asOf, setAsOf] = useState(Date.now);
+  const [cursors, setCursors] = useState<(string | null)[]>([null]);
+  const page = cursors.length;
+  const cursor = cursors[page - 1];
   const [attempt, setAttempt] = useState(0);
   const [status, setStatus] = useState<LoadStatus>("loading");
   const [history, setHistory] = useState<Awaited<ReturnType<typeof catalog.history>>>();
@@ -2278,7 +2266,7 @@ function ProductHistory({ productId, admin = false }: { productId: number; admin
   useEffect(() => {
     const controller = new AbortController();
     setStatus("loading");
-    catalog.history(productId, admin, period, page, controller.signal).then((data) => {
+    catalog.history(productId, admin, period, asOf, cursor, controller.signal).then((data) => {
       if (controller.signal.aborted) return;
       setHistory(data);
       setStatus("ready");
@@ -2286,7 +2274,7 @@ function ProductHistory({ productId, admin = false }: { productId: number; admin
       if (!controller.signal.aborted) setStatus("error");
     });
     return () => controller.abort();
-  }, [productId, admin, period, page, attempt]);
+  }, [productId, admin, period, asOf, cursor, attempt]);
 
   return (
     <section className="surface detail-history">
@@ -2300,7 +2288,8 @@ function ProductHistory({ productId, admin = false }: { productId: number; admin
           value={period}
           onChange={(e) => {
             setPeriod(e.target.value);
-            setPage(1);
+            setAsOf(Date.now());
+            setCursors([null]);
           }}
         >
           <option value="all">Todo o período</option>
@@ -2335,12 +2324,14 @@ function ProductHistory({ productId, admin = false }: { productId: number; admin
             </tbody>
           </table>
           {!history.items.length && <p className="table-empty">Nenhum registro neste período.</p>}
-          {history.total > historyPageSize && (
+          {(page > 1 || history.nextCursor) && (
             <div className="pagination">
-              <span>Página {page} de {Math.ceil(history.total / historyPageSize)}</span>
+              <span>Página {page}</span>
               <div>
-                <button disabled={page === 1} onClick={() => setPage(page - 1)}>Anterior</button>
-                <button disabled={page * historyPageSize >= history.total} onClick={() => setPage(page + 1)}>
+                <button disabled={page === 1} onClick={() => setCursors(cursors.slice(0, -1))}>Anterior</button>
+                <button disabled={!history.nextCursor} onClick={() => {
+                  if (history.nextCursor) setCursors([...cursors, history.nextCursor]);
+                }}>
                   Próxima
                 </button>
               </div>

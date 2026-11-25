@@ -15,7 +15,7 @@ from backend.auth_service.main import session_key
 LIMITS = {"catalogo": 2, "filtro": 3, "carrinho": 2}
 
 
-def seed_load(catalog, purchases, auth):
+def seed_products(catalog):
     now = datetime.now(UTC)
     catalog.produtos.insert_many([
         {
@@ -33,6 +33,11 @@ def seed_load(catalog, purchases, auth):
         }
         for code in range(1000, 1988)
     ])
+
+
+def seed_load(catalog, purchases, auth):
+    seed_products(catalog)
+    now = datetime.now(UTC)
     users = []
     for index in range(100):
         user_id = ObjectId()

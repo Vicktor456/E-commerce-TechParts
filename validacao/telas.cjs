@@ -12,6 +12,7 @@ function mount() {
   let cookie = "";
   const requests = [];
   dom.window.scrollTo = () => {};
+  dom.window.HTMLElement.prototype.scrollIntoView = () => {};
   dom.window.fetch = async (resource, options) => {
     const headers = new Headers(options?.headers);
     if (cookie) headers.set("Cookie", cookie);
@@ -59,6 +60,12 @@ async function customerFlow() {
   const doc = dom.window.document;
   try {
     await until(() => doc.querySelectorAll(".product-card").length === 9, "Catálogo");
+    const first = doc.querySelector(".product-name").textContent;
+    doc.querySelector('[aria-label="Próxima página"]').click();
+    await until(() => doc.querySelector('[aria-current="page"]')?.textContent === "Página 2"
+      && doc.querySelector(".product-name")?.textContent !== first, "Próxima página por cursor");
+    doc.querySelector('[aria-label="Página anterior"]').click();
+    await until(() => doc.querySelector(".product-name")?.textContent === first, "Página anterior");
     screens.push("Catálogo");
     dom.window.location.hash = "produto/1";
     await until(() => doc.querySelector(".detail-history tbody tr"), "Detalhes e histórico");

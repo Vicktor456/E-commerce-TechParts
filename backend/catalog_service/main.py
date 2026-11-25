@@ -14,6 +14,7 @@ from backend.database import mongo_client, service_database
 from backend.service_http import ProductCodes, call_service, require_admin
 
 from . import persistence
+from .pagination import read_page
 from .models import (
     CATEGORY_LABELS, CatalogFilters, CatalogProduct, Category, HistoryPage, PriceEvent,
     ProductInput, ProductPage, price_decimal, spec_display, spec_label,
@@ -75,6 +76,7 @@ ADMIN_ONLY = [Depends(require_admin)]
 PriceQuery = Annotated[Decimal | None, Query(ge=0, le=Decimal("99999999.99"), decimal_places=2)]
 PageQuery = Annotated[int, Query(ge=1, le=100000)]
 LimitQuery = Annotated[int, Query(ge=1, le=20)]
+CursorQuery = Annotated[str | None, Query(min_length=1, max_length=2048)]
 
 
 @app.get(f"{PUBLIC}/produtos", response_model_exclude_none=True)
@@ -89,10 +91,11 @@ def list_products(
     ordem: Literal["relevance", "low", "high", "name"] = "low",
     pagina: PageQuery = 1,
     limite: LimitQuery = 9,
+    cursor: CursorQuery = None,
 ) -> ProductPage:
     query = {"ativo": True}
     if busca.strip():
-        query["nome"] = {"$regex": re.escape(busca.strip()), "$options": "i"}
+        query["$text"] = {"$search": busca.strip()}
     if categoria:
         query["categoria"] = categoria
     if preco_min is not None or preco_max is not None:
@@ -123,11 +126,13 @@ def list_products(
         "name": [("nome", 1), ("codigo", 1)],
     }[ordem]
     products = request.app.state.database.produtos
-    offset = (pagina - 1) * limite
-    documents = products.find(query).sort(sort).skip(offset).limit(limite)
+    documents, next_cursor = read_page(
+        products, query, sort, request=request, token=cursor, page=pagina, limit=limite,
+    )
     return ProductPage(
         items=products_with_stock(documents),
         total=products.count_documents(query),
+        nextCursor=next_cursor,
     )
 
 
@@ -163,7 +168,7 @@ def product_details(request: Request, code: int) -> CatalogProduct:
     return products_with_stock([product_document(request, code)])[0]
 
 
-def history_page(request: Request, product: dict, start, end, page: int) -> HistoryPage:
+def history_page(request: Request, product: dict, start, end, page: int, cursor: str | None) -> HistoryPage:
     query = {"produto_id": product["_id"]}
     if start is not None or end is not None:
         dates = {
@@ -174,7 +179,10 @@ def history_page(request: Request, product: dict, start, end, page: int) -> Hist
             raise HTTPException(422, "O início precisa ser anterior ao fim do período.")
         query["registrado_em"] = dates
     collection = request.app.state.database.historico_precos
-    events = collection.find(query).sort([("registrado_em", -1), ("_id", -1)]).skip((page - 1) * 50).limit(50)
+    events, next_cursor = read_page(
+        collection, query, [("registrado_em", -1), ("_id", -1)],
+        request=request, token=cursor, page=page, limit=50,
+    )
     return HistoryPage(
         items=[
             PriceEvent(id=str(event["_id"]), date=event["registrado_em"].replace(tzinfo=UTC),
@@ -182,6 +190,7 @@ def history_page(request: Request, product: dict, start, end, page: int) -> Hist
             for event in events
         ],
         total=collection.count_documents(query),
+        nextCursor=next_cursor,
     )
 
 
@@ -189,8 +198,9 @@ def history_page(request: Request, product: dict, start, end, page: int) -> Hist
 def price_history(
     request: Request, code: int, inicio: datetime | None = None,
     fim: datetime | None = None, pagina: PageQuery = 1,
+    cursor: CursorQuery = None,
 ) -> HistoryPage:
-    return history_page(request, product_document(request, code), inicio, fim, pagina)
+    return history_page(request, product_document(request, code), inicio, fim, pagina, cursor)
 
 
 @app.get(ADMIN, dependencies=ADMIN_ONLY, response_model_exclude_none=True)
@@ -237,5 +247,6 @@ def reactivate_admin_product(request: Request, code: int) -> CatalogProduct:
 def admin_price_history(
     request: Request, code: int, inicio: datetime | None = None,
     fim: datetime | None = None, pagina: PageQuery = 1,
+    cursor: CursorQuery = None,
 ) -> HistoryPage:
-    return history_page(request, product_document(request, code, active_only=False), inicio, fim, pagina)
+    return history_page(request, product_document(request, code, active_only=False), inicio, fim, pagina, cursor)

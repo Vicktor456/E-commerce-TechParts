@@ -20,6 +20,7 @@ from backend.catalog_service.seed import main as seed_catalog
 from backend.database import mongo_client, service_database
 
 from .carga import measure, request, seed_load
+from .consultas import verify_queries
 from .desempenho import explain_technical_filter, expiration_under_load
 
 SERVICES = {"catalog": 8270, "auth": 8271, "cart": 8272}
@@ -151,6 +152,8 @@ def main():
         processes = start_services(environment)
         preview = subprocess.Popen(["node", "--input-type=module", "-e", PREVIEW], env=environment)
         wait_http(BASE + "/api/catalogo/produtos", 200, [preview, *processes])
+        with mongo_client() as mongo:
+            verify_queries(BASE, service_database(mongo, "catalogo"))
         workloads = measure(BASE, users, server_timing=bool(args.performance))
         print(json.dumps({"produtos": 1000, "usuarios": len(users), "carga": workloads}, ensure_ascii=False), flush=True)
         if args.performance:

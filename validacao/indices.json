@@ -1,0 +1,210 @@
+{
+  "produtos": 1000,
+  "sem_ix05": {
+    "am5_ddr5": {
+      "filtro": {
+        "ativo": true,
+        "categoria": "placa-mae",
+        "especificacoes.soquete": "AM5",
+        "especificacoes.tipo_memoria": "DDR5"
+      },
+      "plano": [
+        {
+          "etapa": "LIMIT"
+        },
+        {
+          "etapa": "FETCH"
+        },
+        {
+          "etapa": "IXSCAN",
+          "indice": "ativo_1_categoria_1_especificacoes.tipo_memoria_1_especificacoes.soquete_1_preco_atual_1_codigo_1"
+        }
+      ],
+      "nReturned": 10,
+      "totalKeysExamined": 10,
+      "totalDocsExamined": 10,
+      "executionTimeMillis": 0
+    },
+    "painel_ips": {
+      "filtro": {
+        "ativo": true,
+        "categoria": "monitor",
+        "especificacoes.painel": "IPS"
+      },
+      "plano": [
+        {
+          "etapa": "LIMIT"
+        },
+        {
+          "etapa": "FETCH"
+        },
+        {
+          "etapa": "IXSCAN",
+          "indice": "ativo_1_categoria_1_preco_atual_1_codigo_1"
+        }
+      ],
+      "nReturned": 2,
+      "totalKeysExamined": 3,
+      "totalDocsExamined": 3,
+      "executionTimeMillis": 0
+    },
+    "chipset_raro": {
+      "filtro": {
+        "ativo": true,
+        "categoria": "placa-mae",
+        "especificacoes.chipset": "X670E"
+      },
+      "plano": [
+        {
+          "etapa": "LIMIT"
+        },
+        {
+          "etapa": "FETCH"
+        },
+        {
+          "etapa": "IXSCAN",
+          "indice": "ativo_1_categoria_1_preco_atual_1_codigo_1"
+        }
+      ],
+      "nReturned": 10,
+      "totalKeysExamined": 935,
+      "totalDocsExamined": 935,
+      "executionTimeMillis": 3
+    }
+  },
+  "com_ix05": {
+    "am5_ddr5": {
+      "filtro": {
+        "ativo": true,
+        "categoria": "placa-mae",
+        "especificacoes.soquete": "AM5",
+        "especificacoes.tipo_memoria": "DDR5"
+      },
+      "plano": [
+        {
+          "etapa": "LIMIT"
+        },
+        {
+          "etapa": "FETCH"
+        },
+        {
+          "etapa": "IXSCAN",
+          "indice": "ativo_1_categoria_1_especificacoes.tipo_memoria_1_especificacoes.soquete_1_preco_atual_1_codigo_1"
+        }
+      ],
+      "nReturned": 10,
+      "totalKeysExamined": 10,
+      "totalDocsExamined": 10,
+      "executionTimeMillis": 1
+    },
+    "painel_ips": {
+      "filtro": {
+        "ativo": true,
+        "categoria": "monitor",
+        "especificacoes.painel": "IPS"
+      },
+      "plano": [
+        {
+          "etapa": "LIMIT"
+        },
+        {
+          "etapa": "FETCH"
+        },
+        {
+          "etapa": "IXSCAN",
+          "indice": "ativo_1_categoria_1_preco_atual_1_codigo_1"
+        }
+      ],
+      "nReturned": 2,
+      "totalKeysExamined": 3,
+      "totalDocsExamined": 3,
+      "executionTimeMillis": 0
+    },
+    "chipset_raro": {
+      "filtro": {
+        "ativo": true,
+        "categoria": "placa-mae",
+        "especificacoes.chipset": "X670E"
+      },
+      "plano": [
+        {
+          "etapa": "SORT"
+        },
+        {
+          "etapa": "FETCH"
+        },
+        {
+          "etapa": "IXSCAN",
+          "indice": "ix05_especificacoes"
+        }
+      ],
+      "nReturned": 10,
+      "totalKeysExamined": 20,
+      "totalDocsExamined": 20,
+      "executionTimeMillis": 1
+    }
+  },
+  "ix05_bytes": 40960,
+  "ix06_nome": {
+    "filtro": {
+      "ativo": true,
+      "$text": {
+        "$search": "Kumara"
+      }
+    },
+    "plano": [
+      {
+        "etapa": "SORT"
+      },
+      {
+        "etapa": "FETCH"
+      },
+      {
+        "etapa": "TEXT_MATCH",
+        "indice": "ix06_nome_descricao_texto"
+      },
+      {
+        "etapa": "FETCH"
+      },
+      {
+        "etapa": "IXSCAN",
+        "indice": "ix06_nome_descricao_texto"
+      }
+    ],
+    "nReturned": 1,
+    "totalKeysExamined": 1,
+    "totalDocsExamined": 2,
+    "executionTimeMillis": 0
+  },
+  "ix06_descricao": {
+    "filtro": {
+      "ativo": true,
+      "$text": {
+        "$search": "isolada"
+      }
+    },
+    "plano": [
+      {
+        "etapa": "SORT"
+      },
+      {
+        "etapa": "FETCH"
+      },
+      {
+        "etapa": "TEXT_MATCH",
+        "indice": "ix06_nome_descricao_texto"
+      },
+      {
+        "etapa": "FETCH"
+      },
+      {
+        "etapa": "IXSCAN",
+        "indice": "ix06_nome_descricao_texto"
+      }
+    ],
+    "nReturned": 10,
+    "totalKeysExamined": 988,
+    "totalDocsExamined": 1976,
+    "executionTimeMillis": 3
+  }
+}

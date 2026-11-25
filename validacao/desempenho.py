@@ -27,7 +27,7 @@ def explain_technical_filter(database):
         "explain",
         {
             "find": "produtos", "filter": query, "sort": {"preco_atual": 1, "codigo": 1},
-            "limit": 9,
+            "limit": 10,
         },
         verbosity="executionStats",
     )

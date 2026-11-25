@@ -38,3 +38,18 @@ Uma rodada adicional de validação local usou 1.000 produtos ativos e 100 usuá
 - **RNF11** — Cem carrinhos com uma unidade cada venceram no mesmo instante durante tráfego de 100 usuários com carrinhos distintos. Cada usuário fez uma pausa de 2 s entre requisições. A leitura direta do MongoDB verificou os encerramentos a cada 200 ms, mais o tempo da consulta. O atraso observado é um limite superior ao tempo até a confirmação da liberação. Houve 700 requisições durante a observação, sem erros. Ao final, as 100 reservas vencidas tinham sido liberadas e as 100 reservas dos usuários que geraram a carga permaneceram intactas.
 
 Uma repetição preliminar, com pausa de 200 ms entre requisições, teve erros `EADDRINUSE` no proxy local. Os números da tabela correspondem à rodada com pausa de 2 s.
+
+### Alinhamento das consultas e dos índices
+
+- **Q01 e Q02** usam paginação por cursor. Na ordenação de preço crescente, a posição é definida por `preco_atual` e pelo código único do produto, usado como desempate nos índices IX02, IX03 e IX04.
+- **Q04** usa `registrado_em` e `_id` em ordem decrescente, conforme o IX10. Os testes verificaram a passagem para a página seguinte mesmo com 55 eventos no mesmo instante.
+- **IX06** indexa `nome` e `descricao` para busca por termos em português. O teste encontrou produtos por um termo presente apenas na descrição e combinou a busca textual com os filtros técnicos e o cursor.
+- **IX05** foi adotado para filtros em campos técnicos variáveis. O ensaio comparou os planos vencedores do MongoDB em uma base isolada com 1.000 produtos. A página tem até 9 produtos na interface. A consulta lê até 10 para detectar a próxima página.
+
+| Filtro | Documentos examinados sem IX05 | Com IX05 | Plano escolhido com IX05 disponível |
+|---|---:|---:|---|
+| AM5 + DDR5 | 10 | 10 | Índice composto IX04 |
+| Monitor com painel IPS | 3 | 3 | Índice composto de categoria e preço IX02 |
+| Chipset X670E, presente em 20 produtos de teste | 935 | 20 | IX05 e ordenação dos resultados |
+
+O IX05 ocupou 40 KiB nesse ensaio. A decisão se baseou na redução da leitura para o filtro seletivo e na preservação dos planos compostos nas outras consultas. [Planos e medições do IX05](indices.json)

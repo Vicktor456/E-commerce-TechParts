@@ -55,6 +55,7 @@ As cargas iniciais podem ser executadas novamente sem sobrescrever produtos nem 
 ### Catálogo e administração
 
 - No catálogo, selecione **Placas-mãe** e combine **AM5** com **DDR5**. A API aplica os dois filtros técnicos por igualdade.
+- A busca usa termos no nome e na descrição, com o índice textual IX06 configurado para português. As consultas Q01, Q02 e Q04 retornam `nextCursor` quando há mais resultados. Envie esse valor em `cursor` com os mesmos filtros da primeira página. A API também aceita `pagina` para clientes existentes.
 - Na área administrativa, cadastre um produto e edite seu preço. O MongoDB armazena o preço como decimal e registra o preço inicial e as mudanças efetivas em `catalogo.historico_precos`, na mesma transação que grava o produto. Para manter o histórico, faça mudanças de preço pela API administrativa ou pelo formulário.
 - Abra o histórico no detalhe ou na edição administrativa e selecione o período. Para consultar um intervalo específico na API, use `inicio` (inclusive) e `fim` (exclusivo) em UTC.
 - Ao remover um produto, a API o marca como inativo. A administração ainda pode consultar seu histórico e reativá-lo.
@@ -91,4 +92,10 @@ Para repetir as medições de RNF02, RNF03 e RNF11, mantenha o MongoDB ativo e u
 
 ```powershell
 .\.venv\Scripts\python.exe -X utf8 -m validacao.executar --performance "$env:TEMP\techparts-desempenho.json"
+```
+
+Para repetir a comparação do índice wildcard IX05 com os índices compostos, rode o comando abaixo. Ele cria e remove apenas uma base temporária.
+
+```powershell
+.\.venv\Scripts\python.exe -X utf8 -m validacao.indices "$env:TEMP\techparts-indices.json"
 ```

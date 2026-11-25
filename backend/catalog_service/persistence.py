@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 
 from bson.decimal128 import Decimal128
-from pymongo import DESCENDING, ReturnDocument
+from pymongo import DESCENDING, TEXT, ReturnDocument
 from backend.database import transaction
 
 from .models import price_decimal
@@ -16,6 +16,11 @@ def record_price(database, product_id, price, recorded_at, session):
 def initialize_catalog(database):
     products = database.produtos
     products.create_index("codigo", unique=True)
+    products.create_index("especificacoes.$**", name="ix05_especificacoes")
+    products.create_index(
+        [("nome", TEXT), ("descricao", TEXT)],
+        name="ix06_nome_descricao_texto", default_language="portuguese",
+    )
     products.create_index([("ativo", 1), ("preco_atual", 1), ("codigo", 1)])
     products.create_index([("ativo", 1), ("categoria", 1), ("preco_atual", 1), ("codigo", 1)])
     products.create_index([

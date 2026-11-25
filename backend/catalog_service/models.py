@@ -114,11 +114,13 @@ class PriceEvent(BaseModel):
 class ProductPage(BaseModel):
     items: list[CatalogProduct]
     total: int
+    nextCursor: str | None = None
 
 
 class HistoryPage(BaseModel):
     items: list[PriceEvent]
     total: int
+    nextCursor: str | None = None
 
 
 class CatalogFilters(BaseModel):

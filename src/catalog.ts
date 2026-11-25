@@ -22,7 +22,7 @@ export type Product = {
   badge?: string;
 };
 
-type Page<T> = { items: T[]; total: number };
+type Page<T> = { items: T[]; total: number; nextCursor?: string | null };
 type PriceEvent = { id: string; date: string; price: number };
 
 export type CatalogFilters = {
@@ -55,7 +55,6 @@ export class CatalogError extends Error {
 const root = "/api/catalogo";
 const adminRoot = `${root}/admin/produtos`;
 export const catalogPageSize = 9;
-export const historyPageSize = 50;
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const response = await fetch(path, { cache: "no-store", ...options });
@@ -83,16 +82,16 @@ type Listing = {
   onlyAvailable: boolean;
   tech: Record<string, string[]>;
   sort: string;
-  page: number;
+  cursor: string | null;
 };
 
 export const catalog = {
   list: (filters: Listing, signal: AbortSignal) => {
     const query = new URLSearchParams({
       ordem: filters.sort,
-      pagina: String(filters.page),
       limite: String(catalogPageSize),
     });
+    if (filters.cursor) query.set("cursor", filters.cursor);
     if (filters.search.trim()) query.set("busca", filters.search.trim());
     if (filters.category) query.set("categoria", categoryCodes[filters.category]);
     if (filters.minPrice) query.set("preco_min", filters.minPrice);
@@ -107,12 +106,12 @@ export const catalog = {
   details: (id: number, signal: AbortSignal) =>
     request<Product>(`${root}/produtos/${id}`, { signal }),
   adminList: (signal: AbortSignal) => request<Product[]>(adminRoot, { signal }),
-  history: (id: number, admin: boolean, period: string, page: number, signal: AbortSignal) => {
-    const query = new URLSearchParams({ pagina: String(page) });
+  history: (id: number, admin: boolean, period: string, asOf: number, cursor: string | null, signal: AbortSignal) => {
+    const query = new URLSearchParams();
+    if (cursor) query.set("cursor", cursor);
     if (period !== "all") {
-      const now = Date.now();
-      query.set("inicio", new Date(now - Number(period) * 86_400_000).toISOString());
-      query.set("fim", new Date(now + 1).toISOString());
+      query.set("inicio", new Date(asOf - Number(period) * 86_400_000).toISOString());
+      query.set("fim", new Date(asOf + 1).toISOString());
     }
     const base = admin ? adminRoot : `${root}/produtos`;
     return request<Page<PriceEvent>>(`${base}/${id}/historico?${query}`, { signal });
