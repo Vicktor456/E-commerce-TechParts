@@ -2,6 +2,8 @@ import asyncio
 import logging
 from contextlib import asynccontextmanager
 from datetime import UTC
+from os import getenv
+from time import perf_counter
 from typing import Annotated
 
 from bson import ObjectId
@@ -58,8 +60,13 @@ app = FastAPI(title="TechParts — Carrinho e Estoque", lifespan=lifespan)
 
 @app.middleware("http")
 async def no_cache(request: Request, call_next):
+    measure = (getenv("TECHPARTS_SERVER_TIMING") == "1" and request.method == "PUT"
+               and request.url.path.startswith("/api/carrinho/itens/"))
+    start = perf_counter() if measure else None
     response = await call_next(request)
     response.headers["Cache-Control"] = "no-store"
+    if start is not None:
+        response.headers["Server-Timing"] = f"cart;dur={(perf_counter() - start) * 1000:.3f}"
     return response
 
 

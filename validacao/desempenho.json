@@ -1,0 +1,479 @@
+{
+  "produtos": 1000,
+  "usuarios": 100,
+  "carga": {
+    "catalogo": {
+      "total": 100,
+      "erros": 0,
+      "limite_s": 2,
+      "p95_s": 0.544,
+      "max_s": 0.57,
+      "fora_da_meta": 0,
+      "primeiro_erro": null
+    },
+    "filtro": {
+      "total": 100,
+      "erros": 0,
+      "limite_s": 3,
+      "p95_s": 0.547,
+      "max_s": 0.572,
+      "fora_da_meta": 0,
+      "primeiro_erro": null
+    },
+    "carrinho": {
+      "total": 100,
+      "erros": 0,
+      "limite_s": 2,
+      "p95_s": 0.618,
+      "max_s": 0.837,
+      "fora_da_meta": 0,
+      "primeiro_erro": null
+    },
+    "carrinho_servidor": {
+      "total": 100,
+      "erros": 0,
+      "limite_s": 2,
+      "p95_s": 0.459,
+      "max_s": 0.708,
+      "fora_da_meta": 0,
+      "primeiro_erro": null
+    }
+  },
+  "explain_filtro": {
+    "queryPlanner": {
+      "namespace": "poc_51a1bf75ba_catalogo.produtos",
+      "parsedQuery": {
+        "$and": [
+          {
+            "ativo": {
+              "$eq": true
+            }
+          },
+          {
+            "categoria": {
+              "$eq": "placa-mae"
+            }
+          },
+          {
+            "especificacoes.soquete": {
+              "$eq": "AM5"
+            }
+          },
+          {
+            "especificacoes.tipo_memoria": {
+              "$eq": "DDR5"
+            }
+          }
+        ]
+      },
+      "indexFilterSet": false,
+      "queryHash": "B15DECA4",
+      "planCacheShapeHash": "B15DECA4",
+      "planCacheKey": "0008FE2E",
+      "optimizationTimeMillis": 0,
+      "maxIndexedOrSolutionsReached": false,
+      "maxIndexedAndSolutionsReached": false,
+      "maxScansToExplodeReached": false,
+      "prunedSimilarIndexes": false,
+      "winningPlan": {
+        "isCached": true,
+        "stage": "LIMIT",
+        "limitAmount": 9,
+        "inputStage": {
+          "stage": "FETCH",
+          "inputStage": {
+            "stage": "IXSCAN",
+            "keyPattern": {
+              "ativo": 1,
+              "categoria": 1,
+              "especificacoes.tipo_memoria": 1,
+              "especificacoes.soquete": 1,
+              "preco_atual": 1,
+              "codigo": 1
+            },
+            "indexName": "ativo_1_categoria_1_especificacoes.tipo_memoria_1_especificacoes.soquete_1_preco_atual_1_codigo_1",
+            "isMultiKey": false,
+            "multiKeyPaths": {
+              "ativo": [],
+              "categoria": [],
+              "especificacoes.tipo_memoria": [],
+              "especificacoes.soquete": [],
+              "preco_atual": [],
+              "codigo": []
+            },
+            "isUnique": false,
+            "isSparse": false,
+            "isPartial": false,
+            "indexVersion": 2,
+            "direction": "forward",
+            "indexBounds": {
+              "ativo": [
+                "[true, true]"
+              ],
+              "categoria": [
+                "[\"placa-mae\", \"placa-mae\"]"
+              ],
+              "especificacoes.tipo_memoria": [
+                "[\"DDR5\", \"DDR5\"]"
+              ],
+              "especificacoes.soquete": [
+                "[\"AM5\", \"AM5\"]"
+              ],
+              "preco_atual": [
+                "[MinKey, MaxKey]"
+              ],
+              "codigo": [
+                "[MinKey, MaxKey]"
+              ]
+            }
+          }
+        }
+      },
+      "rejectedPlans": [
+        {
+          "isCached": false,
+          "stage": "LIMIT",
+          "limitAmount": 9,
+          "inputStage": {
+            "stage": "FETCH",
+            "filter": {
+              "$and": [
+                {
+                  "especificacoes.soquete": {
+                    "$eq": "AM5"
+                  }
+                },
+                {
+                  "especificacoes.tipo_memoria": {
+                    "$eq": "DDR5"
+                  }
+                }
+              ]
+            },
+            "inputStage": {
+              "stage": "IXSCAN",
+              "keyPattern": {
+                "ativo": 1,
+                "categoria": 1,
+                "preco_atual": 1,
+                "codigo": 1
+              },
+              "indexName": "ativo_1_categoria_1_preco_atual_1_codigo_1",
+              "isMultiKey": false,
+              "multiKeyPaths": {
+                "ativo": [],
+                "categoria": [],
+                "preco_atual": [],
+                "codigo": []
+              },
+              "isUnique": false,
+              "isSparse": false,
+              "isPartial": false,
+              "indexVersion": 2,
+              "direction": "forward",
+              "indexBounds": {
+                "ativo": [
+                  "[true, true]"
+                ],
+                "categoria": [
+                  "[\"placa-mae\", \"placa-mae\"]"
+                ],
+                "preco_atual": [
+                  "[MinKey, MaxKey]"
+                ],
+                "codigo": [
+                  "[MinKey, MaxKey]"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "isCached": false,
+          "stage": "LIMIT",
+          "limitAmount": 9,
+          "inputStage": {
+            "stage": "FETCH",
+            "filter": {
+              "$and": [
+                {
+                  "categoria": {
+                    "$eq": "placa-mae"
+                  }
+                },
+                {
+                  "especificacoes.soquete": {
+                    "$eq": "AM5"
+                  }
+                },
+                {
+                  "especificacoes.tipo_memoria": {
+                    "$eq": "DDR5"
+                  }
+                }
+              ]
+            },
+            "inputStage": {
+              "stage": "IXSCAN",
+              "keyPattern": {
+                "ativo": 1,
+                "preco_atual": 1,
+                "codigo": 1
+              },
+              "indexName": "ativo_1_preco_atual_1_codigo_1",
+              "isMultiKey": false,
+              "multiKeyPaths": {
+                "ativo": [],
+                "preco_atual": [],
+                "codigo": []
+              },
+              "isUnique": false,
+              "isSparse": false,
+              "isPartial": false,
+              "indexVersion": 2,
+              "direction": "forward",
+              "indexBounds": {
+                "ativo": [
+                  "[true, true]"
+                ],
+                "preco_atual": [
+                  "[MinKey, MaxKey]"
+                ],
+                "codigo": [
+                  "[MinKey, MaxKey]"
+                ]
+              }
+            }
+          }
+        }
+      ]
+    },
+    "executionStats": {
+      "executionSuccess": true,
+      "nReturned": 9,
+      "executionTimeMillis": 0,
+      "totalKeysExamined": 9,
+      "totalDocsExamined": 9,
+      "executionStages": {
+        "isCached": true,
+        "stage": "LIMIT",
+        "nReturned": 9,
+        "executionTimeMillisEstimate": 0,
+        "works": 10,
+        "advanced": 9,
+        "needTime": 0,
+        "needYield": 0,
+        "saveState": 0,
+        "restoreState": 0,
+        "isEOF": 1,
+        "limitAmount": 9,
+        "inputStage": {
+          "stage": "FETCH",
+          "nReturned": 9,
+          "executionTimeMillisEstimate": 0,
+          "works": 9,
+          "advanced": 9,
+          "needTime": 0,
+          "needYield": 0,
+          "saveState": 0,
+          "restoreState": 0,
+          "isEOF": 0,
+          "docsExamined": 9,
+          "alreadyHasObj": 0,
+          "inputStage": {
+            "stage": "IXSCAN",
+            "nReturned": 9,
+            "executionTimeMillisEstimate": 0,
+            "works": 9,
+            "advanced": 9,
+            "needTime": 0,
+            "needYield": 0,
+            "saveState": 0,
+            "restoreState": 0,
+            "isEOF": 0,
+            "keyPattern": {
+              "ativo": 1,
+              "categoria": 1,
+              "especificacoes.tipo_memoria": 1,
+              "especificacoes.soquete": 1,
+              "preco_atual": 1,
+              "codigo": 1
+            },
+            "indexName": "ativo_1_categoria_1_especificacoes.tipo_memoria_1_especificacoes.soquete_1_preco_atual_1_codigo_1",
+            "isMultiKey": false,
+            "multiKeyPaths": {
+              "ativo": [],
+              "categoria": [],
+              "especificacoes.tipo_memoria": [],
+              "especificacoes.soquete": [],
+              "preco_atual": [],
+              "codigo": []
+            },
+            "isUnique": false,
+            "isSparse": false,
+            "isPartial": false,
+            "indexVersion": 2,
+            "direction": "forward",
+            "indexBounds": {
+              "ativo": [
+                "[true, true]"
+              ],
+              "categoria": [
+                "[\"placa-mae\", \"placa-mae\"]"
+              ],
+              "especificacoes.tipo_memoria": [
+                "[\"DDR5\", \"DDR5\"]"
+              ],
+              "especificacoes.soquete": [
+                "[\"AM5\", \"AM5\"]"
+              ],
+              "preco_atual": [
+                "[MinKey, MaxKey]"
+              ],
+              "codigo": [
+                "[MinKey, MaxKey]"
+              ]
+            },
+            "keysExamined": 9,
+            "seeks": 1,
+            "dupsTested": 0,
+            "dupsDropped": 0
+          }
+        }
+      }
+    },
+    "command": {
+      "find": "produtos",
+      "filter": {
+        "ativo": true,
+        "categoria": "placa-mae",
+        "especificacoes.soquete": "AM5",
+        "especificacoes.tipo_memoria": "DDR5"
+      },
+      "sort": {
+        "preco_atual": 1,
+        "codigo": 1
+      },
+      "limit": 9,
+      "$db": "poc_51a1bf75ba_catalogo"
+    },
+    "mongodb_version": "8.0.38"
+  },
+  "expiracao": {
+    "total": 100,
+    "erros": 0,
+    "limite_s": 60,
+    "p95_s": 9.118,
+    "max_s": 9.118,
+    "fora_da_meta": 0,
+    "primeiro_erro": null,
+    "usuarios_concorrentes": 100,
+    "pausa_entre_requisicoes_s": 2,
+    "requisicoes_durante_observacao": 700,
+    "erros_durante_observacao": 0,
+    "reservas_de_teste_restantes": 0,
+    "reservas_dos_usuarios_de_carga": 100,
+    "atrasos_observados_s": [
+      8.509,
+      8.509,
+      8.509,
+      8.509,
+      8.509,
+      8.509,
+      8.509,
+      8.509,
+      8.509,
+      8.509,
+      8.509,
+      8.509,
+      8.509,
+      8.509,
+      8.509,
+      8.509,
+      8.509,
+      8.509,
+      8.509,
+      8.509,
+      8.509,
+      8.509,
+      8.711,
+      8.711,
+      8.711,
+      8.711,
+      8.711,
+      8.711,
+      8.711,
+      8.711,
+      8.711,
+      8.711,
+      8.711,
+      8.711,
+      8.711,
+      8.711,
+      8.711,
+      8.711,
+      8.711,
+      8.711,
+      8.711,
+      8.711,
+      8.711,
+      8.711,
+      8.711,
+      8.711,
+      8.711,
+      8.711,
+      8.711,
+      8.711,
+      8.711,
+      8.711,
+      8.711,
+      8.711,
+      8.915,
+      8.915,
+      8.915,
+      8.915,
+      8.915,
+      8.915,
+      8.915,
+      8.915,
+      8.915,
+      8.915,
+      8.915,
+      8.915,
+      8.915,
+      8.915,
+      8.915,
+      8.915,
+      8.915,
+      8.915,
+      8.915,
+      8.915,
+      8.915,
+      8.915,
+      8.915,
+      8.915,
+      8.915,
+      8.915,
+      8.915,
+      9.118,
+      9.118,
+      9.118,
+      9.118,
+      9.118,
+      9.118,
+      9.118,
+      9.118,
+      9.118,
+      9.118,
+      9.118,
+      9.118,
+      9.118,
+      9.118,
+      9.118,
+      9.118,
+      9.118,
+      9.118,
+      9.118
+    ]
+  }
+}

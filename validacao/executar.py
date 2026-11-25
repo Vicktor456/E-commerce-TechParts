@@ -5,11 +5,13 @@ import shutil
 import subprocess
 import sys
 import time
+from pathlib import Path
 from secrets import token_urlsafe
 from urllib.error import HTTPError, URLError
 from urllib.request import urlopen
 from uuid import uuid4
 
+from bson import json_util
 from pymongo.errors import PyMongoError
 
 from backend.auth_service.accounts import Registration, create_account
@@ -18,6 +20,7 @@ from backend.catalog_service.seed import main as seed_catalog
 from backend.database import mongo_client, service_database
 
 from .carga import measure, request, seed_load
+from .desempenho import explain_technical_filter, expiration_under_load
 
 SERVICES = {"catalog": 8270, "auth": 8271, "cart": 8272}
 BASE = "http://127.0.0.1:5273"
@@ -111,8 +114,12 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--restart-mongo", action="store_true")
     parser.add_argument("--docker", default=shutil.which("docker") or "docker")
+    parser.add_argument("--performance", type=Path, metavar="ARQUIVO_JSON",
+                        help="Mede RNF02, RNF03 e RNF11 e salva a evidência em JSON.")
     args = parser.parse_args()
-    if not os.getenv("POC_TOOLS"):
+    if args.performance and args.restart_mongo:
+        parser.error("Execute --performance e --restart-mongo em rodadas separadas.")
+    if not args.performance and not os.getenv("POC_TOOLS"):
         parser.error("Defina POC_TOOLS com o diretório onde Newman e jsdom foram instalados.")
     prefix = f"poc_{uuid4().hex[:10]}_"
     os.environ["MONGODB_DB_PREFIX"] = prefix
@@ -120,6 +127,7 @@ def main():
         **os.environ,
         **{f"{name.upper()}_SERVICE_URL": f"http://127.0.0.1:{port}" for name, port in SERVICES.items()},
         "AUTH_COOKIE_SECURE": "0",
+        "TECHPARTS_SERVER_TIMING": "1" if args.performance else "0",
     }
     settings = {
         "baseUrl": BASE, "adminEmail": "admin@example.com", "adminPassword": token_urlsafe(24),
@@ -143,8 +151,29 @@ def main():
         processes = start_services(environment)
         preview = subprocess.Popen(["node", "--input-type=module", "-e", PREVIEW], env=environment)
         wait_http(BASE + "/api/catalogo/produtos", 200, [preview, *processes])
-        workloads = measure(BASE, users)
+        workloads = measure(BASE, users, server_timing=bool(args.performance))
         print(json.dumps({"produtos": 1000, "usuarios": len(users), "carga": workloads}, ensure_ascii=False), flush=True)
+        if args.performance:
+            with mongo_client() as mongo:
+                catalog = service_database(mongo, "catalogo")
+                purchases = service_database(mongo, "compras")
+                plan = explain_technical_filter(catalog)
+                expiration = expiration_under_load(BASE, purchases, users)
+            evidence = {
+                "produtos": 1000, "usuarios": len(users), "carga": workloads,
+                "explain_filtro": plan, "expiracao": expiration,
+            }
+            args.performance.write_text(
+                json_util.dumps(evidence, ensure_ascii=False, indent=2) + "\n", encoding="utf-8",
+            )
+            print(json.dumps({key: value for key, value in expiration.items()
+                              if key != "atrasos_observados_s"}, ensure_ascii=False), flush=True)
+            assert plan["executionStats"]["executionSuccess"]
+            assert all(group["erros"] == 0 and group["fora_da_meta"] == 0 for group in workloads.values())
+            assert expiration["erros"] == expiration["fora_da_meta"] == expiration["reservas_de_teste_restantes"] == 0
+            assert expiration["erros_durante_observacao"] == 0
+            assert expiration["reservas_dos_usuarios_de_carga"] == len(users)
+            return
         assert all(group["erros"] == 0 and group["fora_da_meta"] == 0 for group in workloads.values())
 
         cookie = "techparts_session=" + users[0][1]

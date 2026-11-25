@@ -86,3 +86,9 @@ pnpm build
 A suíte usa bancos temporários no MongoDB, reinicia os três serviços de teste e verifica o catálogo, o estoque e um carrinho persistido. Ela executa a coleção Postman pelo Newman e verifica as oito telas no DOM. Para verificar também a persistência após a reinicialização do contêiner local do MongoDB, execute a suíte com `--restart-mongo` numa sessão que tenha acesso ao motor do Docker. A opção reinicia o serviço `mongo` do Compose, interrompendo brevemente o acesso local ao banco.
 
 Para rodar a coleção no Postman Desktop, importe [TechParts.postman_collection.json](validacao/TechParts.postman_collection.json), configure `baseUrl` com o endereço do frontend, informe as credenciais de administrador e escolha um e-mail de cliente novo com uma senha de pelo menos 15 caracteres. A coleção cria uma conta e um produto de teste no ambiente selecionado. O resultado da validação está em [Resultado da PoC](validacao/resultado.md).
+
+Para repetir as medições de RNF02, RNF03 e RNF11, mantenha o MongoDB ativo e use o frontend já compilado pelo comando `pnpm build`. Execute o modo de desempenho, que grava as medições e o plano de execução no caminho informado.
+
+```powershell
+.\.venv\Scripts\python.exe -X utf8 -m validacao.executar --performance "$env:TEMP\techparts-desempenho.json"
+```
