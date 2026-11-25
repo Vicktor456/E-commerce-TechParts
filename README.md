@@ -41,9 +41,16 @@ pnpm install --frozen-lockfile
 pnpm dev
 ```
 
-Abra o endereço exibido pelo Vite. A listagem consulta `GET /api/catalogo/produtos` e lê os produtos ativos de `catalogo.produtos`. A documentação da API está em `http://127.0.0.1:8000/docs`.
+Abra o endereço exibido pelo Vite. A API lê produtos ativos de `catalogo.produtos` e faz a busca, a filtragem e a paginação no MongoDB. A documentação da API está em `http://127.0.0.1:8000/docs`.
 
-A carga inicial pode ser executada novamente sem sobrescrever os produtos já cadastrados. Altere, por exemplo, o campo `nome` de um produto no MongoDB e recarregue a página para ver a alteração. Estoque, histórico dos produtos de demonstração, carrinho e alterações administrativas são simulados nesta etapa.
+A carga inicial pode ser executada novamente sem sobrescrever os produtos já cadastrados. O serviço migra os históricos de demonstração existentes para `catalogo.historico_precos` automaticamente. Estoque e carrinho funcionam em modo de demonstração nesta etapa.
+
+### Catálogo e administração
+
+- No catálogo, selecione **Placas-mãe** e combine **AM5** com **DDR5**. A API aplica os dois filtros técnicos por igualdade.
+- Na área administrativa, cadastre um produto e edite seu preço. O MongoDB armazena o preço como decimal e registra o preço inicial e as mudanças efetivas em `catalogo.historico_precos`, na mesma transação que grava o produto. Para manter o histórico, faça mudanças de preço pela API administrativa ou pelo formulário.
+- Abra o histórico no detalhe ou na edição administrativa e selecione o período. Para consultar um intervalo específico na API, use `inicio` (inclusive) e `fim` (exclusivo) em UTC.
+- Ao remover um produto, a API o marca como inativo. A administração ainda pode consultar seu histórico e reativá-lo.
 
 O cadastro e o login usam `auth.usuarios`, com índice único no e-mail normalizado e senhas verificadas com scrypt. A sessão expira em oito horas e é persistida em `auth.sessoes`. O logout revoga a sessão. A rota `GET /api/catalogo/admin/produtos` consulta o Auth Service para confirmar o perfil antes de retornar os dados. A documentação do Auth Service está em `http://127.0.0.1:8001/docs`.
 

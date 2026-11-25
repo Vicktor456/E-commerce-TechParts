@@ -26,5 +26,4 @@ export const auth = {
   login: (values: { email: string; password: string }) => post<User>("login", values),
   me: (signal: AbortSignal) => request<User>("/api/auth/me", { signal }),
   logout: () => post<void>("logout", {}),
-  verifyAdmin: (signal: AbortSignal) => request<void>("/api/auth/admin", { signal }),
 };

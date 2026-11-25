@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
 import { auth, AuthError } from "./auth";
 import type { User } from "./auth";
+import { catalog, CatalogError, catalogPageSize, historyPageSize } from "./catalog";
+import type { CatalogFilters, Category, Product } from "./catalog";
 
 type IconName =
   | "search"
@@ -168,21 +170,6 @@ function Icon({
   );
 }
 
-type Category = "Placas-mãe" | "Monitores" | "Processadores" | "Memórias" | "Teclados" | "Mouses";
-type Product = {
-  id: number;
-  name: string;
-  brand: string;
-  category: Category;
-  price: number;
-  total: number;
-  baseReserved: number;
-  active: boolean;
-  specs: Record<string, string>;
-  description: string;
-  history: { date: string; price: number }[];
-  badge?: string;
-};
 const money = (value: number) =>
   value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 const categories: { name: Category; icon: IconName }[] = [
@@ -470,20 +457,43 @@ const technicalFields = (category: string) =>
     : category === "Monitores"
       ? ["Tipo de painel", "Taxa de atualização"]
       : [];
-const dateLabel = (date: string) => new Date(`${date}T12:00:00`).toLocaleDateString("pt-BR");
+const optionalSpecs: Partial<Record<Category, string[]>> = {
+  "Placas-mãe": ["Formato"],
+  Monitores: ["Resolução", "Tempo de resposta"],
+  Processadores: ["Soquete", "Núcleos", "Threads", "Clock máximo"],
+  Memórias: ["Capacidade", "Tipo de memória", "Frequência"],
+  Teclados: ["Switch", "Layout", "Iluminação", "Conexão"],
+  Mouses: ["Sensor", "Resolução", "Botões", "Conexão"],
+};
+type LoadStatus = "loading" | "ready" | "error";
+type ProductDraft = Parameters<typeof catalog.save>[0];
+
+const mergeProducts = (old: Product[], incoming: Product[]) => {
+  const merged = new Map(old.map((product) => [product.id, product]));
+  incoming.forEach((product) => merged.set(product.id, product));
+  return [...merged.values()];
+};
+const catalogErrorMessage = (error: unknown) =>
+  error instanceof CatalogError ? error.message : "Catálogo indisponível. Tente novamente.";
 
 export default function App() {
   const [route, setRoute] = useState(location.hash.slice(1) || "catalogo");
   const isAdmin = route.startsWith("admin/");
   const [products, setProducts] = useState<Product[]>([]);
-  const [catalogStatus, setCatalogStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [catalogStatus, setCatalogStatus] = useState<LoadStatus>("loading");
   const [catalogAttempt, setCatalogAttempt] = useState(0);
+  const [catalogPage, setCatalogPage] = useState({ items: [] as Product[], total: 0 });
+  const [filters, setFilters] = useState<CatalogFilters>({ counts: {}, specs: {}, maxPrice: 0 });
+  const [details, setDetails] = useState<{ id: number; status: LoadStatus; product?: Product }>();
+  const [adminProducts, setAdminProducts] = useState<Product[]>([]);
+  const [simulatedStock, setSimulatedStock] = useState<Record<number, number>>({});
+  const [pendingProduct, setPendingProduct] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
-  const [adminAccess, setAdminAccess] = useState<"pending" | "allowed" | "denied">("pending");
+  const [adminAccess, setAdminAccess] = useState<"pending" | "allowed" | "denied" | "error">("pending");
   const [carts, setCarts] = useState<Record<string, Cart>>({});
   const [search, setSearch] = useState("");
-  const [category, setCategory] = useState("");
+  const [category, setCategory] = useState<Category | "">("");
   const [maxPrice, setMaxPrice] = useState<number | null>(null);
   const [minPrice, setMinPrice] = useState("");
   const [tech, setTech] = useState<Record<string, string[]>>({});
@@ -495,19 +505,23 @@ export default function App() {
   const [returnTo, setReturnTo] = useState("catalogo");
   const [confirmRemove, setConfirmRemove] = useState<Product | null>(null);
   const [demo, setDemo] = useState(false);
-  const [period, setPeriod] = useState("all");
   const [tick, setTick] = useState(Date.now());
-  const priceLimit = products.reduce(
-    (limit, p) => Math.max(limit, Math.ceil(p.price / 10) * 10),
-    2000,
-  );
+  const priceLimit = Math.max(2000, Math.ceil(filters.maxPrice / 10) * 10);
+  const isCatalog = route === "catalogo";
+  const detailId = route.startsWith("produto/") ? Number(route.split("/")[1]) || 0 : null;
+  const detailStatus = details && details.id === detailId ? details.status : "loading";
+  const selected = details && details.id === detailId ? details.product : undefined;
+  const loadingCatalog = isCatalog ? catalogStatus === "loading" : !isAdmin && detailStatus === "loading";
+  const catalogTotal = Object.values(filters.counts).reduce((sum, count) => sum + count, 0);
+  const availableSpecs = filters.specs[category] ?? {};
+  const withSimulatedStock = (p: Product) => ({ ...p, total: simulatedStock[p.id] ?? p.total });
   const retryCatalog = () => {
     setCatalogStatus("loading");
     setCatalogAttempt((attempt) => attempt + 1);
   };
   const catalogFeedback = (
     <div className="empty-state">
-      {catalogStatus === "loading" ? (
+      {loadingCatalog ? (
         <p role="status">Carregando produtos do catálogo…</p>
       ) : (
         <>
@@ -527,7 +541,7 @@ export default function App() {
       (sum, c) => sum + c.items.filter((i) => i.id === p.id).reduce((s, i) => s + i.quantity, 0),
       0,
     );
-  const available = (p: Product) => Math.max(0, p.total - reserved(p));
+  const available = (p: Product) => Math.max(0, (simulatedStock[p.id] ?? p.total) - reserved(p));
   const notify = (message: string) => setToast(message);
   const go = (path: string) => {
     location.hash = path;
@@ -539,6 +553,7 @@ export default function App() {
     try {
       await auth.logout();
       setUser(null);
+      setAdminProducts([]);
       setAdminAccess("pending");
       go("catalogo");
       notify("Você saiu da sua conta.");
@@ -562,13 +577,19 @@ export default function App() {
   useEffect(() => {
     if (!isAdmin || user?.role !== "admin") return;
     const controller = new AbortController();
-    auth.verifyAdmin(controller.signal).then(() => {
-      if (!controller.signal.aborted) setAdminAccess("allowed");
-    }).catch(() => {
-      if (!controller.signal.aborted) setAdminAccess("denied");
+    setAdminAccess("pending");
+    catalog.adminList(controller.signal).then((items) => {
+      if (controller.signal.aborted) return;
+      setAdminProducts(items);
+      setProducts((old) => mergeProducts(old, items));
+      setAdminAccess("allowed");
+    }).catch((error) => {
+      if (controller.signal.aborted) return;
+      const denied = error instanceof CatalogError && (error.status === 401 || error.status === 403);
+      setAdminAccess(denied ? "denied" : "error");
     });
     return () => controller.abort();
-  }, [isAdmin, user]);
+  }, [isAdmin, user, catalogAttempt]);
   useEffect(() => {
     const handler = () => {
       setRoute(location.hash.slice(1) || "catalogo");
@@ -578,24 +599,59 @@ export default function App() {
     return () => window.removeEventListener("hashchange", handler);
   }, []);
   useEffect(() => {
+    if (!isCatalog) return;
     const controller = new AbortController();
-
-    async function loadCatalog() {
-      try {
-        const response = await fetch("/api/catalogo/produtos", { signal: controller.signal });
-        if (!response.ok) throw new Error(`Catalog API returned ${response.status}`);
-        const catalog: Product[] = await response.json();
+    setCatalogStatus("loading");
+    catalog.list({ search, category, minPrice, maxPrice, onlyAvailable, tech, sort, page }, controller.signal)
+      .then((result) => {
         if (controller.signal.aborted) return;
-        setProducts(catalog);
+        const lastPage = Math.max(1, Math.ceil(result.total / catalogPageSize));
+        if (page > lastPage) {
+          setPage(lastPage);
+          return;
+        }
+        setCatalogPage(result);
+        setProducts((old) => mergeProducts(old, result.items));
         setCatalogStatus("ready");
-      } catch {
-        if (!controller.signal.aborted) setCatalogStatus("error");
-      }
-    }
-
-    void loadCatalog();
+      }).catch((error) => {
+        if (!controller.signal.aborted) {
+          setCatalogStatus("error");
+          if (error instanceof CatalogError && error.status === 422) setToast(catalogErrorMessage(error));
+        }
+      });
     return () => controller.abort();
-  }, [catalogAttempt]);
+  }, [isCatalog, search, category, minPrice, maxPrice, onlyAvailable, tech, sort, page, catalogAttempt]);
+
+  useEffect(() => {
+    if (!isCatalog) return;
+    const controller = new AbortController();
+    catalog.filters(controller.signal).then((data) => {
+      if (!controller.signal.aborted) setFilters(data);
+    }).catch(() => {
+      if (!controller.signal.aborted) setToast("Não foi possível carregar as opções de filtro.");
+    });
+    return () => controller.abort();
+  }, [isCatalog, catalogAttempt]);
+
+  useEffect(() => {
+    if (detailId === null) return;
+    const controller = new AbortController();
+    setDetails({ id: detailId, status: "loading" });
+    catalog.details(detailId, controller.signal).then((product) => {
+      if (controller.signal.aborted) return;
+      setDetails({ id: detailId, status: "ready", product });
+      setProducts((old) => mergeProducts(old, [product]));
+    }).catch((error) => {
+      if (controller.signal.aborted) return;
+      if (error instanceof CatalogError && error.status === 404) {
+        setDetails({ id: detailId, status: "ready" });
+        setProducts((old) => old.map((p) => p.id === detailId ? { ...p, active: false } : p));
+      } else {
+        setDetails({ id: detailId, status: "error" });
+      }
+    });
+    return () => controller.abort();
+  }, [detailId, catalogAttempt]);
   useEffect(() => {
     if (toast) {
       const id = setTimeout(() => setToast(""), 4500);
@@ -632,42 +688,40 @@ export default function App() {
     setOnlyAvailable(false);
     setPage(1);
   };
-  const changeCategory = (value: string) => {
+  const changeCategory = (value: Category | "") => {
     setCategory(value);
     setTech({});
   };
-  const filtered = useMemo(
-    () =>
-      products
-        .filter(
-          (p) =>
-            p.active &&
-            p.name.toLocaleLowerCase("pt-BR").includes(search.toLocaleLowerCase("pt-BR")) &&
-            (!category || p.category === category) &&
-            p.price >= Number(minPrice || 0) &&
-            (maxPrice === null || p.price <= maxPrice) &&
-            (!onlyAvailable || available(p) > 0) &&
-            Object.entries(tech).every(
-              ([key, values]) => !values.length || values.includes(p.specs[key]),
-            ),
-        )
-        .sort((a, b) =>
-          sort === "low"
-            ? a.price - b.price
-            : sort === "high"
-              ? b.price - a.price
-              : sort === "name"
-                ? a.name.localeCompare(b.name)
-                : a.id - b.id,
-        ),
-    [products, search, category, maxPrice, minPrice, onlyAvailable, tech, sort, carts],
-  );
+  const pageCount = Math.ceil(catalogPage.total / catalogPageSize);
+  const firstPageLink = Math.max(1, Math.min(page - 2, pageCount - 4));
+  const updateProduct = (product: Product) => {
+    setAdminProducts((old) => mergeProducts(old, [product]));
+    setProducts((old) => mergeProducts(old, [product]));
+  };
+  const saveProduct = async (product: ProductDraft) => {
+    updateProduct(await catalog.save(product));
+    notify("Produto salvo no catálogo.");
+    go("admin/produtos");
+  };
+  const changeProductStatus = async (product: Product, active: boolean) => {
+    if (pendingProduct) return;
+    setPendingProduct(true);
+    try {
+      const updated = await (active ? catalog.reactivate(product.id) : catalog.remove(product.id));
+      updateProduct(updated);
+      setConfirmRemove(null);
+      notify(active ? "Produto reativado no catálogo." : "Produto removido. Histórico preservado.");
+    } catch (error) {
+      notify(catalogErrorMessage(error));
+    } finally {
+      setPendingProduct(false);
+    }
+  };
   const activeFilters =
     Number(!!category) +
     Number(maxPrice !== null || !!minPrice) +
     Object.values(tech).reduce((n, list) => n + list.length, 0) +
     Number(onlyAvailable);
-  const selected = products.find((p) => p.id === Number(route.split("/")[1]));
   const login = (origin = "catalogo") => {
     setReturnTo(origin);
     go("login");
@@ -743,7 +797,7 @@ export default function App() {
             onChange={() => changeCategory("")}
           />
           <span>Todas as categorias</span>
-          <small>{products.filter((p) => p.active).length}</small>
+          <small>{catalogTotal}</small>
         </label>
         {categories.map((c) => (
           <label className={`filter-option ${category === c.name ? "selected" : ""}`} key={c.name}>
@@ -754,7 +808,7 @@ export default function App() {
               onChange={() => changeCategory(c.name)}
             />
             <span>{c.name}</span>
-            <small>{products.filter((p) => p.active && p.category === c.name).length}</small>
+            <small>{filters.counts[c.name] ?? 0}</small>
           </label>
         ))}
       </section>
@@ -771,6 +825,7 @@ export default function App() {
                 aria-label="Preço mínimo"
                 type="number"
                 min="0"
+                step="0.01"
                 max={maxPrice ?? undefined}
                 value={minPrice}
                 placeholder="0"
@@ -787,6 +842,7 @@ export default function App() {
                 aria-label="Preço máximo"
                 type="number"
                 min="0"
+                step="0.01"
                 value={maxPrice ?? ""}
                 placeholder="Sem limite"
                 onChange={(e) =>
@@ -813,21 +869,12 @@ export default function App() {
           <span>{money(priceLimit)}</span>
         </div>
       </section>
-      {category &&
-        technicalFields(category)
-          .filter((f) => f !== "Chipset")
-          .map((field) => (
+      {Object.entries(availableSpecs).map(([field, values]) => (
             <section className="filter-section" key={field}>
               <h4>
                 {field} <span>−</span>
               </h4>
-              {[
-                ...new Set(
-                  products.filter((p) => p.category === category).map((p) => p.specs[field]),
-                ),
-              ]
-                .filter(Boolean)
-                .map((value) => (
+              {values.map((value) => (
                   <label className="filter-option" key={value}>
                     <input
                       type="checkbox"
@@ -1056,7 +1103,7 @@ export default function App() {
             </div>
             {catalogStatus === "ready" && (
               <span className="catalog-total">
-                {products.filter((p) => p.active).length} produtos no catálogo
+                {catalogTotal} produtos no catálogo
               </span>
             )}
           </div>
@@ -1074,7 +1121,7 @@ export default function App() {
               </div>
               {filterPanel}
               <button className="primary mobile-apply" onClick={() => setFiltersOpen(false)}>
-                Mostrar {filtered.length} produtos
+                Mostrar {catalogPage.total} produtos
               </button>
             </aside>
             {filtersOpen && (
@@ -1092,8 +1139,8 @@ export default function App() {
                   </button>
                   {catalogStatus === "ready" && (
                     <p>
-                      <strong>{filtered.length}</strong>{" "}
-                      {filtered.length === 1 ? "produto encontrado" : "produtos encontrados"}
+                      <strong>{catalogPage.total}</strong>{" "}
+                      {catalogPage.total === 1 ? "produto encontrado" : "produtos encontrados"}
                       {search && <> para “{search}”</>}
                     </p>
                   )}
@@ -1148,10 +1195,10 @@ export default function App() {
                   )}
                 </div>
               )}
-              {catalogStatus !== "ready" ? catalogFeedback : filtered.length ? (
+              {catalogStatus !== "ready" ? catalogFeedback : catalogPage.items.length ? (
                 <>
                   <div className="product-grid">
-                    {filtered.slice((page - 1) * 9, page * 9).map((p) => (
+                    {catalogPage.items.map((p) => (
                       <article
                         className={`product-card ${available(p) === 0 ? "unavailable-card" : ""}`}
                         key={p.id}
@@ -1194,8 +1241,8 @@ export default function App() {
                   </div>
                   <div className="pagination">
                     <span>
-                      Mostrando {Math.min((page - 1) * 9 + 1, filtered.length)}–
-                      {Math.min(page * 9, filtered.length)} de {filtered.length} produtos
+                      Mostrando {Math.min((page - 1) * catalogPageSize + 1, catalogPage.total)}–
+                      {Math.min(page * catalogPageSize, catalogPage.total)} de {catalogPage.total} produtos
                     </span>
                     <div>
                       <button
@@ -1205,22 +1252,23 @@ export default function App() {
                       >
                         <Icon name="chevron" className="rotate" size={15} />
                       </button>
-                      {Array.from({ length: Math.ceil(filtered.length / 9) }, (_, i) => (
+                      {Array.from({ length: Math.min(pageCount, 5) }, (_, i) => firstPageLink + i).map((number) => (
                         <button
-                          key={i}
-                          className={page === i + 1 ? "current" : ""}
+                          key={number}
+                          className={page === number ? "current" : ""}
+                          aria-current={page === number ? "page" : undefined}
                           onClick={() => {
-                            setPage(i + 1);
+                            setPage(number);
                             document
                               .getElementById("catalog")
                               ?.scrollIntoView({ behavior: "smooth" });
                           }}
                         >
-                          {i + 1}
+                          {number}
                         </button>
                       ))}
                       <button
-                        disabled={page >= Math.ceil(filtered.length / 9)}
+                        disabled={page >= pageCount}
                         onClick={() => {
                           setPage(page + 1);
                           document
@@ -1273,11 +1321,11 @@ export default function App() {
             items={[
               "Catálogo",
               selected?.category || "Produto",
-              selected?.name || (catalogStatus === "ready" ? "Não encontrado" : "Detalhes"),
+              selected?.name || (detailStatus === "ready" ? "Não encontrado" : "Detalhes"),
             ]}
             go={() => go("catalogo")}
           />
-          {catalogStatus !== "ready" ? catalogFeedback : selected?.active ? (
+          {detailStatus !== "ready" ? catalogFeedback : selected?.active ? (
             <>
               <div className="product-detail">
                 <div className="detail-art">
@@ -1345,51 +1393,7 @@ export default function App() {
                     </tbody>
                   </table>
                 </section>
-                <section className="surface">
-                  <div className="surface-heading">
-                    <div>
-                      <h2>Histórico de preços</h2>
-                      <p>Transparência em cada mudança.</p>
-                    </div>
-                    <select
-                      aria-label="Período do histórico"
-                      value={period}
-                      onChange={(e) => setPeriod(e.target.value)}
-                    >
-                      <option value="all">Todo o período</option>
-                      <option value="30">Últimos 30 dias</option>
-                      <option value="90">Últimos 90 dias</option>
-                    </select>
-                  </div>
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Data da atualização</th>
-                        <th>Preço</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {[...selected.history]
-                        .reverse()
-                        .filter(
-                          (h) =>
-                            period === "all" ||
-                            new Date(h.date).getTime() >= Date.now() - Number(period) * 86400000,
-                        )
-                        .map((h, i) => (
-                          <tr key={i}>
-                            <td>{dateLabel(h.date)}</td>
-                            <td className="strong">{money(h.price)}</td>
-                          </tr>
-                        ))}
-                    </tbody>
-                  </table>
-                  {!selected.history.some(
-                    (h) =>
-                      period === "all" ||
-                      new Date(h.date).getTime() >= Date.now() - Number(period) * 86400000,
-                  ) && <p className="table-empty">Nenhuma alteração neste período.</p>}
-                </section>
+                <ProductHistory key={selected.id} productId={selected.id} />
               </div>
             </>
           ) : (
@@ -1630,7 +1634,7 @@ export default function App() {
                         setProducts((old) =>
                           old.map((p) => (p.id === id ? { ...p, active: false } : p)),
                         );
-                        notify("O primeiro produto foi removido do catálogo público.");
+                        notify("O primeiro item foi marcado como removido no carrinho.");
                       }}
                     >
                       Simular produto removido
@@ -1680,7 +1684,7 @@ export default function App() {
               <p>
                 Ambiente de demonstração
                 <br />
-                <span>Alterações simuladas nesta sessão</span>
+                <span>Estoque simulado nesta sessão</span>
               </p>
             </div>
             <button
@@ -1692,6 +1696,8 @@ export default function App() {
           <section className="admin-content">
             {authLoading || (user?.role === "admin" && adminAccess === "pending") ? (
               <div className="empty-state surface" role="status">Verificando acesso…</div>
+            ) : adminAccess === "error" && user?.role === "admin" ? (
+              catalogFeedback
             ) : user?.role !== "admin" || adminAccess !== "allowed" ? (
               <div className="empty-state surface">
                 <Icon name="shield" size={36} />
@@ -1720,21 +1726,21 @@ export default function App() {
                       <div>
                         <span>Total de produtos</span>
                         <strong>
-                          {products.length}
+                          {adminProducts.length}
                           <Icon name="box" />
                         </strong>
                       </div>
                       <div>
                         <span>Ativos no catálogo</span>
                         <strong>
-                          {products.filter((p) => p.active).length}
+                          {adminProducts.filter((p) => p.active).length}
                           <span className="stat-dot green" />
                         </strong>
                       </div>
                       <div>
                         <span>Ativos sem estoque</span>
                         <strong>
-                          {products.filter((p) => p.active && !available(p)).length}
+                          {adminProducts.filter((p) => p.active && !available(p)).length}
                           <span className="stat-dot orange" />
                         </strong>
                       </div>
@@ -1742,9 +1748,8 @@ export default function App() {
                     <div className="surface table-scroll">
                       <div className="surface-heading">
                         <h2>
-                          Todos os produtos <span className="count-badge">{products.length}</span>
+                          Todos os produtos <span className="count-badge">{adminProducts.length}</span>
                         </h2>
-                        <span className="muted">Dados de demonstração</span>
                       </div>
                       <table className="admin-table">
                         <thead>
@@ -1757,7 +1762,7 @@ export default function App() {
                           </tr>
                         </thead>
                         <tbody>
-                          {products.map((p) => (
+                          {adminProducts.map((p) => (
                             <tr key={p.id}>
                               <td>
                                 <strong>{p.name}</strong>
@@ -1798,14 +1803,8 @@ export default function App() {
                                   ) : (
                                     <button
                                       className="text-button"
-                                      onClick={() => {
-                                        setProducts((old) =>
-                                          old.map((x) =>
-                                            x.id === p.id ? { ...x, active: true } : x,
-                                          ),
-                                        );
-                                        notify("Produto reativado no catálogo.");
-                                      }}
+                                      disabled={pendingProduct}
+                                      onClick={() => void changeProductStatus(p, true)}
                                     >
                                       Reativar
                                     </button>
@@ -1827,45 +1826,15 @@ export default function App() {
                     </div>
                   </>
                 )}
-                {(route === "admin/novo" || route.startsWith("admin/editar/")) && (
-                  <ProductForm
+                {route === "admin/novo" && (
+                  <ProductForm key={route} cancel={() => go("admin/produtos")} save={saveProduct} />
+                )}
+                {route.startsWith("admin/editar/") && (
+                  <EditProduct
                     key={route}
-                    product={products.find((p) => p.id === Number(route.split("/")[2]))}
+                    product={adminProducts.find((p) => p.id === Number(route.split("/")[2]))}
                     cancel={() => go("admin/produtos")}
-                    save={(p) => {
-                      setProducts((old) =>
-                        p.id
-                          ? old.map((x) =>
-                              x.id === p.id
-                                ? {
-                                    ...p,
-                                    history:
-                                      x.price !== p.price
-                                        ? [
-                                            ...x.history,
-                                            {
-                                              date: new Date().toISOString().slice(0, 10),
-                                              price: p.price,
-                                            },
-                                          ]
-                                        : x.history,
-                                  }
-                                : x,
-                            )
-                          : [
-                              ...old,
-                              {
-                                ...p,
-                                id: Math.max(0, ...old.map((x) => x.id)) + 1,
-                                history: [
-                                  { date: new Date().toISOString().slice(0, 10), price: p.price },
-                                ],
-                              },
-                            ],
-                      );
-                      notify("Produto salvo. Catálogo e histórico atualizados.");
-                      go("admin/produtos");
-                    }}
+                    save={saveProduct}
                   />
                 )}
                 {route === "admin/estoque" && (
@@ -1890,7 +1859,7 @@ export default function App() {
                     <div className="surface table-scroll">
                       <div className="surface-heading">
                         <h2>Inventário de produtos</h2>
-                        <span className="muted">{products.length} produtos</span>
+                        <span className="muted">{adminProducts.length} produtos</span>
                       </div>
                       <table className="admin-table stock-table">
                         <thead>
@@ -1903,15 +1872,13 @@ export default function App() {
                           </tr>
                         </thead>
                         <tbody>
-                          {products.map((p) => (
+                          {adminProducts.map(withSimulatedStock).map((p) => (
                             <StockRow
                               key={`${p.id}-${p.total}-${reserved(p)}`}
                               product={p}
                               reserved={reserved(p)}
                               onSave={(total) => {
-                                setProducts((old) =>
-                                  old.map((x) => (x.id === p.id ? { ...x, total } : x)),
-                                );
+                                setSimulatedStock((old) => ({ ...old, [p.id]: total }));
                                 notify("Estoque atualizado em todas as telas.");
                               }}
                             />
@@ -1984,18 +1951,13 @@ export default function App() {
             </p>
           </div>
           <div className="modal-actions">
-            <button className="secondary" onClick={() => setConfirmRemove(null)}>
+            <button className="secondary" disabled={pendingProduct} onClick={() => setConfirmRemove(null)}>
               Cancelar
             </button>
             <button
               className="danger-button"
-              onClick={() => {
-                setProducts((old) =>
-                  old.map((p) => (p.id === confirmRemove.id ? { ...p, active: false } : p)),
-                );
-                setConfirmRemove(null);
-                notify("Produto removido do catálogo. Histórico preservado.");
-              }}
+              disabled={pendingProduct}
+              onClick={() => void changeProductStatus(confirmRemove, false)}
             >
               Remover do catálogo
             </button>
@@ -2263,13 +2225,113 @@ function Field({
   );
 }
 
+function ProductHistory({ productId, admin = false }: { productId: number; admin?: boolean }) {
+  const [period, setPeriod] = useState("all");
+  const [page, setPage] = useState(1);
+  const [attempt, setAttempt] = useState(0);
+  const [status, setStatus] = useState<LoadStatus>("loading");
+  const [history, setHistory] = useState<Awaited<ReturnType<typeof catalog.history>>>();
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setStatus("loading");
+    catalog.history(productId, admin, period, page, controller.signal).then((data) => {
+      if (controller.signal.aborted) return;
+      setHistory(data);
+      setStatus("ready");
+    }).catch(() => {
+      if (!controller.signal.aborted) setStatus("error");
+    });
+    return () => controller.abort();
+  }, [productId, admin, period, page, attempt]);
+
+  return (
+    <section className="surface detail-history">
+      <div className="surface-heading">
+        <div>
+          <h2>Histórico de preços</h2>
+          <p>Preço inicial e alterações registradas.</p>
+        </div>
+        <select
+          aria-label="Período do histórico"
+          value={period}
+          onChange={(e) => {
+            setPeriod(e.target.value);
+            setPage(1);
+          }}
+        >
+          <option value="all">Todo o período</option>
+          <option value="30">Últimos 30 dias</option>
+          <option value="90">Últimos 90 dias</option>
+        </select>
+      </div>
+      {status === "loading" && <p className="table-empty" role="status">Carregando histórico…</p>}
+      {status === "error" && (
+        <div className="table-empty">
+          <p role="alert">Não foi possível carregar o histórico.</p>
+          <button className="text-button" onClick={() => setAttempt((old) => old + 1)}>
+            Tentar novamente
+          </button>
+        </div>
+      )}
+      {status === "ready" && history && (
+        <>
+          <table>
+            <thead>
+              <tr><th>Data da atualização (UTC)</th><th>Preço</th></tr>
+            </thead>
+            <tbody>
+              {history.items.map((event) => (
+                <tr key={event.id}>
+                  <td>{new Date(event.date).toLocaleString("pt-BR", {
+                    dateStyle: "short", timeStyle: "short", timeZone: "UTC",
+                  })}</td>
+                  <td className="strong">{money(event.price)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {!history.items.length && <p className="table-empty">Nenhum registro neste período.</p>}
+          {history.total > historyPageSize && (
+            <div className="pagination">
+              <span>Página {page} de {Math.ceil(history.total / historyPageSize)}</span>
+              <div>
+                <button disabled={page === 1} onClick={() => setPage(page - 1)}>Anterior</button>
+                <button disabled={page * historyPageSize >= history.total} onClick={() => setPage(page + 1)}>
+                  Próxima
+                </button>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </section>
+  );
+}
+
+function EditProduct({ product, save, cancel }: Parameters<typeof ProductForm>[0]) {
+  if (!product) return (
+    <div className="empty-state surface">
+      <h2>Produto não encontrado</h2>
+      <button className="secondary" onClick={cancel}>Voltar para produtos</button>
+    </div>
+  );
+
+  return (
+    <>
+      <ProductForm product={product} save={save} cancel={cancel} />
+      <ProductHistory productId={product.id} admin />
+    </>
+  );
+}
+
 function ProductForm({
   product,
   save,
   cancel,
 }: {
   product?: Product;
-  save: (p: Product) => void;
+  save: (p: ProductDraft) => Promise<void>;
   cancel: () => void;
 }) {
   const [values, setValues] = useState({
@@ -2281,32 +2343,43 @@ function ProductForm({
   });
   const [specs, setSpecs] = useState<Record<string, string>>(product?.specs || {});
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const submit = (e: FormEvent) => {
+  const [saving, setSaving] = useState(false);
+  const fields = [...new Set([
+    ...technicalFields(values.category),
+    ...(optionalSpecs[values.category as Category] ?? []),
+    ...Object.keys(specs),
+  ])];
+  const submit = async (e: FormEvent) => {
     e.preventDefault();
+    if (saving) return;
     const next: Record<string, string> = {};
     Object.entries(values).forEach(([key, value]) => {
       if (!value.trim()) next[key] = "Este campo é obrigatório.";
     });
-    if (values.price && (!Number.isFinite(Number(values.price)) || Number(values.price) < 0))
-      next.price = "O preço deve ser um valor igual ou maior que zero.";
+    if (values.price && (!/^(?:\d+(?:\.\d{1,2})?|\.\d{1,2})$/.test(values.price) ||
+        Number(values.price) > 99_999_999.99))
+      next.price = "Informe um preço não negativo com até duas casas decimais.";
     technicalFields(values.category).forEach((key) => {
       if (!specs[key]?.trim()) next[key] = "Informe esta especificação técnica.";
     });
     setErrors(next);
     if (Object.keys(next).length) return;
-    save({
-      id: product?.id || 0,
-      name: values.name.trim(),
-      brand: values.brand.trim(),
-      category: values.category as Category,
-      description: values.description.trim(),
-      price: Number(values.price),
-      specs,
-      total: product?.total || 0,
-      baseReserved: product?.baseReserved || 0,
-      active: product?.active ?? true,
-      history: product?.history || [],
-    });
+    setSaving(true);
+    try {
+      await save({
+        id: product?.id || 0,
+        name: values.name.trim(),
+        brand: values.brand.trim(),
+        category: values.category as Category,
+        description: values.description.trim(),
+        price: Number(values.price),
+        specs,
+      });
+    } catch (error) {
+      setErrors({ save: catalogErrorMessage(error) });
+    } finally {
+      setSaving(false);
+    }
   };
   return (
     <>
@@ -2329,7 +2402,6 @@ function ProductForm({
         <section className="surface form-section">
           <div className="surface-heading">
             <h2>Informações do produto</h2>
-            <span className="muted">Todos os campos são obrigatórios</span>
           </div>
           <div className="form-body">
             <Field label="Nome do produto" error={errors.name}>
@@ -2388,14 +2460,14 @@ function ProductForm({
             </div>
           </div>
         </section>
-        {technicalFields(values.category).length > 0 && (
+        {fields.length > 0 && (
           <section className="surface form-section">
             <div className="surface-heading">
               <h2>Especificações técnicas</h2>
               <Icon name="chip" />
             </div>
             <div className="form-body form-two-col">
-              {technicalFields(values.category).map((key) => (
+              {fields.map((key) => (
                 <Field key={key} label={key} error={errors[key]}>
                   <input
                     value={specs[key] || ""}
@@ -2408,7 +2480,7 @@ function ProductForm({
                             ? "Ex.: DDR5"
                             : key === "Tipo de painel"
                               ? "Ex.: IPS"
-                              : "Ex.: 144 Hz"
+                              : key === "Taxa de atualização" ? "Ex.: 144 Hz" : undefined
                     }
                     onChange={(e) => setSpecs((old) => ({ ...old, [key]: e.target.value }))}
                   />
@@ -2426,13 +2498,14 @@ function ProductForm({
             </p>
           </div>
         )}
+        {errors.save && <p className="field-error" role="alert">{errors.save}</p>}
         <div className="form-actions">
-          <button type="button" className="secondary" onClick={cancel}>
+          <button type="button" className="secondary" disabled={saving} onClick={cancel}>
             Cancelar
           </button>
-          <button type="submit" className="primary">
+          <button type="submit" className="primary" disabled={saving}>
             <Icon name="check" size={18} />
-            Salvar produto
+            {saving ? "Salvando…" : "Salvar produto"}
           </button>
         </div>
       </form>
