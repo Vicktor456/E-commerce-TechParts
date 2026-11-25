@@ -8,6 +8,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/api/catalogo': 'http://127.0.0.1:8000',
+      '/api/auth': 'http://127.0.0.1:8001',
     },
   },
   resolve: {

@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
+import { auth, AuthError } from "./auth";
+import type { User } from "./auth";
 
 type IconName =
   | "search"
@@ -460,9 +462,7 @@ function ProductArt({ product, large = false }: { product: Product; large?: bool
   );
 }
 
-type User = { name: string; email: string; role: "client" | "admin" };
 type Cart = { items: { id: number; quantity: number }[]; touched: number; expired?: boolean };
-type Account = User & { password: string };
 const emptyCart = (): Cart => ({ items: [], touched: Date.now() });
 const technicalFields = (category: string) =>
   category === "Placas-mãe"
@@ -474,14 +474,13 @@ const dateLabel = (date: string) => new Date(`${date}T12:00:00`).toLocaleDateStr
 
 export default function App() {
   const [route, setRoute] = useState(location.hash.slice(1) || "catalogo");
+  const isAdmin = route.startsWith("admin/");
   const [products, setProducts] = useState<Product[]>([]);
   const [catalogStatus, setCatalogStatus] = useState<"loading" | "ready" | "error">("loading");
   const [catalogAttempt, setCatalogAttempt] = useState(0);
   const [user, setUser] = useState<User | null>(null);
-  const [accounts, setAccounts] = useState<Account[]>([
-    { name: "Ana Silva", email: "cliente@techparts.com", password: "cliente123", role: "client" },
-    { name: "Administrador", email: "admin@techparts.com", password: "admin123", role: "admin" },
-  ]);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [adminAccess, setAdminAccess] = useState<"pending" | "allowed" | "denied">("pending");
   const [carts, setCarts] = useState<Record<string, Cart>>({});
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("");
@@ -536,6 +535,40 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: "instant" });
     setFiltersOpen(false);
   };
+  const logout = async () => {
+    try {
+      await auth.logout();
+      setUser(null);
+      setAdminAccess("pending");
+      go("catalogo");
+      notify("Você saiu da sua conta.");
+    } catch {
+      notify("Não foi possível sair. Tente novamente.");
+    }
+  };
+  useEffect(() => {
+    const controller = new AbortController();
+    auth.me(controller.signal).then((account) => {
+      if (!controller.signal.aborted) setUser(account);
+    }).catch((error) => {
+      if (!controller.signal.aborted && !(error instanceof AuthError && error.status === 401)) {
+        setToast("Não foi possível verificar sua sessão.");
+      }
+    }).finally(() => {
+      if (!controller.signal.aborted) setAuthLoading(false);
+    });
+    return () => controller.abort();
+  }, []);
+  useEffect(() => {
+    if (!isAdmin || user?.role !== "admin") return;
+    const controller = new AbortController();
+    auth.verifyAdmin(controller.signal).then(() => {
+      if (!controller.signal.aborted) setAdminAccess("allowed");
+    }).catch(() => {
+      if (!controller.signal.aborted) setAdminAccess("denied");
+    });
+    return () => controller.abort();
+  }, [isAdmin, user]);
   useEffect(() => {
     const handler = () => {
       setRoute(location.hash.slice(1) || "catalogo");
@@ -635,7 +668,6 @@ export default function App() {
     Object.values(tech).reduce((n, list) => n + list.length, 0) +
     Number(onlyAvailable);
   const selected = products.find((p) => p.id === Number(route.split("/")[1]));
-  const isAdmin = route.startsWith("admin");
   const login = (origin = "catalogo") => {
     setReturnTo(origin);
     go("login");
@@ -1373,23 +1405,23 @@ export default function App() {
         </main>
       )}
 
-      {(route === "login" || route === "cadastro") && (
+      {(route === "login" || route === "cadastro") && authLoading && (
+        <p className="container inner-page" role="status">Verificando sessão…</p>
+      )}
+      {(route === "login" || route === "cadastro") && !authLoading && (
         <AuthForm
           key={route}
           signup={route === "cadastro"}
-          accounts={accounts}
           onSwitch={() => go(route === "login" ? "cadastro" : "login")}
-          onRegister={(account) => {
-            setAccounts((old) => [...old, account]);
-          }}
           onSuccess={(account) => {
+            setAdminAccess("pending");
             setUser(account);
             notify(
               `Bem-vindo${account.role === "admin" ? "" : "(a)"}, ${account.name.split(" ")[0]}!`,
             );
             go(
               account.role === "admin"
-                ? "admin/produtos"
+                ? returnTo.startsWith("admin/") ? returnTo : "admin/produtos"
                 : returnTo.startsWith("admin") || ["login", "cadastro", "conta"].includes(returnTo)
                   ? "catalogo"
                   : returnTo,
@@ -1412,11 +1444,7 @@ export default function App() {
             </button>
             <button
               className="secondary"
-              onClick={() => {
-                setUser(null);
-                go("catalogo");
-                notify("Você saiu da sua conta.");
-              }}
+              onClick={logout}
             >
               <Icon name="logout" size={17} /> Sair da conta
             </button>
@@ -1656,16 +1684,15 @@ export default function App() {
               </p>
             </div>
             <button
-              onClick={() => {
-                setUser(null);
-                go("catalogo");
-              }}
+              onClick={logout}
             >
               <Icon name="logout" size={18} /> Sair da administração
             </button>
           </aside>
           <section className="admin-content">
-            {user?.role !== "admin" ? (
+            {authLoading || (user?.role === "admin" && adminAccess === "pending") ? (
+              <div className="empty-state surface" role="status">Verificando acesso…</div>
+            ) : user?.role !== "admin" || adminAccess !== "allowed" ? (
               <div className="empty-state surface">
                 <Icon name="shield" size={36} />
                 <h2>Acesso restrito</h2>
@@ -1980,46 +2007,8 @@ export default function App() {
           <div className="demo-intro">
             <span className="section-kicker">TECHPARTS · PROJETO ACADÊMICO</span>
             <p>
-              Uma loja de tecnologia feita para explorar. Todas as informações são fictícias e as
-              alterações duram apenas nesta sessão.
+              O catálogo usa produtos de demonstração. Você pode criar uma conta para explorar a loja.
             </p>
-          </div>
-          <h3>Contas de demonstração</h3>
-          <div className="demo-account">
-            <Icon name="user" />
-            <div>
-              <strong>Cliente</strong>
-              <code>cliente@techparts.com</code>
-              <small>Senha: cliente123</small>
-            </div>
-            <button
-              className="text-button"
-              onClick={() => {
-                setDemo(false);
-                login("catalogo");
-              }}
-            >
-              Entrar
-              <Icon name="arrow" size={15} />
-            </button>
-          </div>
-          <div className="demo-account">
-            <Icon name="shield" />
-            <div>
-              <strong>Administrador</strong>
-              <code>admin@techparts.com</code>
-              <small>Senha: admin123</small>
-            </div>
-            <button
-              className="text-button"
-              onClick={() => {
-                setDemo(false);
-                login("admin/produtos");
-              }}
-            >
-              Entrar
-              <Icon name="arrow" size={15} />
-            </button>
           </div>
           <div className="alert info">
             <Icon name="info" />
@@ -2090,52 +2079,48 @@ function Modal({
 
 function AuthForm({
   signup,
-  accounts,
   onSwitch,
-  onRegister,
   onSuccess,
 }: {
   signup: boolean;
-  accounts: Account[];
   onSwitch: () => void;
-  onRegister: (account: Account) => void;
-  onSuccess: (account: Account) => void;
+  onSuccess: (account: User) => void;
 }) {
   const [values, setValues] = useState({ name: "", email: "", password: "" });
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [created, setCreated] = useState<Account | null>(null);
+  const [created, setCreated] = useState(false);
+  const [busy, setBusy] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const submit = (e: FormEvent) => {
+
+  const submit = async (e: FormEvent) => {
     e.preventDefault();
+    if (busy) return;
     const next: Record<string, string> = {};
+    const email = values.email.trim();
     if (signup && !values.name.trim()) next.name = "Informe seu nome.";
-    if (!values.email.trim()) next.email = "Informe seu e-mail.";
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.email))
-      next.email = "Digite um e-mail válido.";
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) next.email = "Digite um e-mail válido.";
     if (!values.password) next.password = "Informe sua senha.";
-    else if (signup && values.password.length < 6) next.password = "Use pelo menos 6 caracteres.";
-    if (signup && accounts.some((a) => a.email === values.email.trim().toLowerCase()))
-      next.email = "Este e-mail já está cadastrado. Entre na sua conta.";
+    else if (signup && [...values.password].length < 15) next.password = "Use pelo menos 15 caracteres.";
     setErrors(next);
     if (Object.keys(next).length) return;
-    if (signup) {
-      const account: Account = {
-        name: values.name.trim(),
-        email: values.email.trim().toLowerCase(),
-        password: values.password,
-        role: "client",
-      };
-      onRegister(account);
-      setCreated(account);
-    } else {
-      const account = accounts.find(
-        (a) => a.email === values.email.trim().toLowerCase() && a.password === values.password,
-      );
-      if (!account)
-        setErrors({
-          credentials: "E-mail ou senha incorretos. Confira seus dados e tente novamente.",
-        });
-      else onSuccess(account);
+
+    setBusy(true);
+    try {
+      if (signup) {
+        await auth.register({ ...values, email });
+        setValues({ name: "", email, password: "" });
+        setCreated(true);
+      } else {
+        onSuccess(await auth.login({ email, password: values.password }));
+      }
+    } catch (error) {
+      const status = error instanceof AuthError ? error.status : 0;
+      if (status === 409) setErrors({ email: "Este e-mail já está cadastrado." });
+      else if (status === 401) setErrors({ credentials: "E-mail ou senha incorretos." });
+      else if (status === 422) setErrors({ credentials: "Confira os dados informados." });
+      else setErrors({ credentials: "Autenticação indisponível. Tente novamente." });
+    } finally {
+      setBusy(false);
     }
   };
   return (
@@ -2156,7 +2141,7 @@ function AuthForm({
         </p>
         <img src="/images/hero-tech.png" alt="Componentes de computador" />
         <span className="auth-story-note">
-          <Icon name="shield" size={17} /> Seus dados ficam apenas nesta demonstração.
+          <Icon name="shield" size={17} /> Sua senha é armazenada como hash.
         </span>
       </div>
       <section className="auth-card surface">
@@ -2167,12 +2152,9 @@ function AuthForm({
             </span>
             <span className="section-kicker">TUDO PRONTO</span>
             <h1>Conta criada com sucesso!</h1>
-            <p>
-              Boas-vindas, {created.name.split(" ")[0]}. Sua conta de cliente está pronta para
-              explorar a TechParts.
-            </p>
-            <button className="primary" onClick={() => onSuccess(created)}>
-              Continuar para a loja
+            <p>Entre com seu e-mail e senha para acessar a loja.</p>
+            <button className="primary" onClick={onSwitch}>
+              Ir para o login
               <Icon name="arrow" size={18} />
             </button>
           </div>
@@ -2192,6 +2174,7 @@ function AuthForm({
                 <Field label="Nome completo" error={errors.name}>
                   <input
                     autoComplete="name"
+                    maxLength={120}
                     value={values.name}
                     placeholder="Como podemos chamar você?"
                     onChange={(e) => setValues({ ...values, name: e.target.value })}
@@ -2203,6 +2186,7 @@ function AuthForm({
                 <input
                   type="email"
                   autoComplete="email"
+                  maxLength={254}
                   placeholder="seu@email.com"
                   value={values.email}
                   onChange={(e) => setValues({ ...values, email: e.target.value })}
@@ -2214,7 +2198,8 @@ function AuthForm({
                   <input
                     type={showPassword ? "text" : "password"}
                     autoComplete={signup ? "new-password" : "current-password"}
-                    placeholder={signup ? "Pelo menos 6 caracteres" : "Digite sua senha"}
+                    placeholder={signup ? "Pelo menos 15 caracteres" : "Digite sua senha"}
+                    maxLength={128}
                     value={values.password}
                     onChange={(e) => setValues({ ...values, password: e.target.value })}
                     aria-invalid={!!errors.password}
@@ -2230,49 +2215,20 @@ function AuthForm({
                   {errors.credentials}
                 </div>
               )}
-              <button className="primary" type="submit">
-                {signup ? "Criar conta" : "Entrar"}
+              <button className="primary" type="submit" disabled={busy}>
+                {busy ? "Aguarde…" : signup ? "Criar conta" : "Entrar"}
                 <Icon name="arrow" size={18} />
               </button>
             </form>
             <p className="auth-switch">
               {signup ? "Já tem uma conta?" : "Ainda não tem uma conta?"}{" "}
-              <button onClick={onSwitch}>{signup ? "Entrar" : "Criar conta"}</button>
+              <button onClick={onSwitch} disabled={busy}>{signup ? "Entrar" : "Criar conta"}</button>
             </p>
-            {signup ? (
+            {signup && (
               <div className="auth-disclaimer">
                 <Icon name="shield" size={16} />
-                <p>
-                  O cadastro público cria apenas contas de cliente. Nenhum dado é enviado a um
-                  servidor.
-                </p>
+                <p>O cadastro público cria apenas contas de cliente.</p>
               </div>
-            ) : (
-              <details className="login-demo">
-                <summary>Explorar com uma conta de demonstração</summary>
-                <button
-                  onClick={() =>
-                    setValues({ name: "", email: "cliente@techparts.com", password: "cliente123" })
-                  }
-                >
-                  <Icon name="user" size={16} />
-                  <span>
-                    Cliente<small>cliente@techparts.com · cliente123</small>
-                  </span>
-                  <Icon name="arrow" size={15} />
-                </button>
-                <button
-                  onClick={() =>
-                    setValues({ name: "", email: "admin@techparts.com", password: "admin123" })
-                  }
-                >
-                  <Icon name="shield" size={16} />
-                  <span>
-                    Administrador<small>admin@techparts.com · admin123</small>
-                  </span>
-                  <Icon name="arrow" size={15} />
-                </button>
-              </details>
             )}
           </>
         )}

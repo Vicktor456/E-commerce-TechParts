@@ -5,7 +5,7 @@ from pathlib import Path
 from bson.decimal128 import Decimal128
 from pymongo import UpdateOne
 
-from .database import mongo_client
+from backend.database import mongo_client
 
 
 def main() -> None:

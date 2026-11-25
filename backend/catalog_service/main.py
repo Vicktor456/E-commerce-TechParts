@@ -1,11 +1,14 @@
 from contextlib import asynccontextmanager
+from os import getenv
+from urllib.error import HTTPError, URLError
+from urllib.request import Request as AuthRequest, urlopen
 
 from bson.decimal128 import Decimal128
-from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from pydantic import BaseModel
 from pymongo.errors import PyMongoError
 
-from .database import mongo_client
+from backend.database import mongo_client
 
 
 CATEGORY_LABELS = {
@@ -79,11 +82,38 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="TechParts — Catálogo", lifespan=lifespan)
 
 
-@app.get("/api/catalogo/produtos", response_model_exclude_none=True)
-def list_products(request: Request, response: Response) -> list[CatalogProduct]:
+def require_admin(request: Request) -> None:
+    cookie = request.headers.get("cookie")
+    if not cookie:
+        raise HTTPException(401, "Faça login para continuar.")
+    url = getenv("AUTH_SERVICE_URL", "http://127.0.0.1:8001")
+    auth_request = AuthRequest(f"{url.rstrip('/')}/api/auth/admin", headers={"Cookie": cookie})
+    try:
+        with urlopen(auth_request, timeout=4):
+            pass
+    except HTTPError as error:
+        if error.code in (401, 403):
+            raise HTTPException(error.code, "Acesso administrativo restrito.") from error
+        raise HTTPException(503, "Serviço de autenticação indisponível.") from error
+    except (URLError, TimeoutError) as error:
+        raise HTTPException(503, "Serviço de autenticação indisponível.") from error
+
+
+def load_products(request: Request, response: Response, query: dict) -> list[CatalogProduct]:
     response.headers["Cache-Control"] = "no-store"
     try:
-        documents = request.app.state.products.find({"ativo": True}).sort("codigo")
+        documents = request.app.state.products.find(query).sort("codigo")
         return [to_catalog_product(document) for document in documents]
     except PyMongoError as error:
         raise HTTPException(503, "Banco de dados do catálogo indisponível.") from error
+
+
+@app.get("/api/catalogo/produtos", response_model_exclude_none=True)
+def list_products(request: Request, response: Response) -> list[CatalogProduct]:
+    return load_products(request, response, {"ativo": True})
+
+
+@app.get("/api/catalogo/admin/produtos", dependencies=[Depends(require_admin)],
+         response_model_exclude_none=True)
+def list_admin_products(request: Request, response: Response) -> list[CatalogProduct]:
+    return load_products(request, response, {})
