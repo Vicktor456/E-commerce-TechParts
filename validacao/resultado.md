@@ -67,3 +67,19 @@ O teste isolado executou os três serviços e o MongoDB. A resposta interna do c
 | Liberação e repetição da retirada | A primeira retirada voltou o saldo reservado para zero. Repetir a mesma requisição manteve o saldo em zero. O histórico de preço permaneceu disponível na administração. |
 
 A reconciliação ocorre na próxima leitura do carrinho. A remoção lógica do produto mantém a reserva em andamento até a retirada do item ou a expiração do carrinho. As alterações do carrinho e do estoque são transacionais no Cart Service. Catálogo e carrinho se comunicam por HTTP, com a janela de concorrência descrita na especificação.
+
+### Verificações operacionais
+
+| Requisito | Resultado local |
+|---|---|
+| **RNF08 — Disponibilidade mensal de 99,5%** | A amostra sintética passou nas três APIs. A aprovação mensal está pendente da coleta de um mês completo em ambiente com os serviços ativos. |
+| **RNF09 — Senhas e controle de acesso** | 17 respostas e os logs de acesso e erro dos três serviços foram auditados. Nenhuma das senhas de teste apareceu nas respostas ou nos logs. O MongoDB armazenou o hash. Visitantes e clientes receberam HTTP 401 ou 403 ao tentar operações restritas. |
+| **RNF10 — Recuperação por backup** | RPO de **0,179 s** no incidente simulado, com meta de 24 h. RTO de **6,190 s**, com meta de 60 min. |
+
+O ensaio usou `mongodump` e `mongorestore` com a origem de teste sem escritas durante a cópia. Foram restaurados e comparados **41 documentos** e os índices em três bancos de destino vazios no mesmo MongoDB. A autenticação, a sessão, o catálogo, o carrinho e o saldo reservado foram conferidos pelas APIs restauradas. Um registro gravado após o backup ficou fora da cópia restaurada, como esperado.
+
+O RPO medido representa a idade do ponto de recuperação no instante da falha simulada. O RTO começa antes da restauração e termina após verificar os dados e o funcionamento das APIs. Para cumprir a meta de RPO continuamente, o ambiente operacional precisa manter cópias recuperáveis com idade de até 24 h. O ensaio local demonstra a recuperação lógica. A recuperação de uma perda do servidor depende de cópias mantidas fora dele.
+
+A coleta de disponibilidade consulta a listagem do catálogo, autentica uma conta de cliente e lê o carrinho. O ensaio produziu uma amostra positiva por API. O relatório mensal mantém o percentual em aberto caso faltem observações ou o mês em UTC ainda não tenha terminado.
+
+[Evidência do ensaio operacional](operacional.json)

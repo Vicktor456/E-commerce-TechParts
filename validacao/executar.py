@@ -59,12 +59,12 @@ newman.run({
 """
 
 
-def start_services(environment):
+def start_services(environment, *, log=None):
     return [
         subprocess.Popen([
             sys.executable, "-m", "uvicorn", f"backend.{name}_service.main:app",
-            "--port", str(port), "--no-access-log",
-        ], env=environment)
+            "--port", str(port), *([] if log is not None else ["--no-access-log"]),
+        ], env=environment, stdout=log, stderr=subprocess.STDOUT if log is not None else None)
         for name, port in SERVICES.items()
     ]
 

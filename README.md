@@ -105,3 +105,30 @@ Com o MongoDB ativo, a corrida entre remoção do catálogo e reserva pode ser r
 ```powershell
 .\.venv\Scripts\python.exe -X utf8 -m validacao.corrida
 ```
+
+### Verificações operacionais
+
+Para repetir a auditoria de credenciais e o ensaio de recuperação, obtenha as [MongoDB Database Tools](https://www.mongodb.com/docs/database-tools/installation/) e indique a pasta que contém `mongodump` e `mongorestore`. O ensaio usa o MongoDB local, cria bases temporárias separadas para origem e destino e apaga as cópias de teste ao terminar.
+
+```powershell
+.\.venv\Scripts\python.exe -X utf8 -m validacao.operacional --tools 'C:\caminho\database-tools\bin' --output "$env:TEMP\techparts-operacional.json"
+```
+
+Para medir disponibilidade, mantenha os três serviços ativos durante a janela de observação e use uma conta de cliente dedicada. O coletor registra uma amostra por minuto em UTC e funciona enquanto o processo estiver ativo. Guarde o arquivo SQLite em armazenamento persistente fora do repositório. O exemplo usa a pasta local do usuário.
+
+```powershell
+$env:POC_MONITOR_EMAIL = 'monitor@example.com'
+$monitorPassword = Read-Host 'Senha da conta de monitoramento' -AsSecureString
+$env:POC_MONITOR_PASSWORD = [Net.NetworkCredential]::new('', $monitorPassword).Password
+$dbMonitor = Join-Path $env:LOCALAPPDATA 'techparts-disponibilidade.sqlite'
+.\.venv\Scripts\python.exe -X utf8 -m validacao.disponibilidade --database $dbMonitor coletar
+```
+
+Em outro terminal, gere o relatório para o mês desejado. A meta é avaliada por API, após o fechamento do mês e com cobertura integral dos minutos previstos. Minutos decorridos sem amostra são registrados como lacunas.
+
+```powershell
+$dbMonitor = Join-Path $env:LOCALAPPDATA 'techparts-disponibilidade.sqlite'
+.\.venv\Scripts\python.exe -X utf8 -m validacao.disponibilidade --database $dbMonitor relatorio AAAA-MM
+```
+
+Use `--manutencao` com um arquivo JSON para excluir apenas minutos completos de janelas previamente acordadas. Cada objeto da lista contém `inicio`, `fim` e `aprovado_em` com fuso horário explícito, além de `referencia` para a evidência do acordo.

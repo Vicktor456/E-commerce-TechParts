@@ -1,0 +1,34 @@
+{
+  "rnf08_amostra_sintetica": {
+    "catalogo": true,
+    "auth": true,
+    "carrinho": true
+  },
+  "rnf09": {
+    "respostas_auditadas": 17,
+    "senhas_em_respostas": 0,
+    "senhas_nos_logs": 0,
+    "logs_bytes": 3878,
+    "hash_no_banco": true,
+    "permissoes_testadas": true
+  },
+  "rnf10": {
+    "rpo_ensaio_s": 0.179,
+    "rto_ensaio_s": 6.19,
+    "ponto_backup_utc": "2026-11-25T18:53:08.908623+00:00",
+    "incidente_simulado_utc": "2026-11-25T18:53:09.087668+00:00",
+    "arquivos": {
+      "auth": 810,
+      "catalogo": 2951,
+      "compras": 801
+    },
+    "documentos_verificados": {
+      "auth": 3,
+      "catalogo": 25,
+      "compras": 13
+    },
+    "indices_verificados": true,
+    "apis_restauradas": true,
+    "gravacao_posterior_ausente": true
+  }
+}
