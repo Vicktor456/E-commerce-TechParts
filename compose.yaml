@@ -1,0 +1,39 @@
+name: techparts
+
+services:
+  mongo:
+    image: mongo:8.0-noble
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
+    ports:
+      - "127.0.0.1:27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "quit(db.adminCommand({ ping: 1 }).ok === 1 ? 0 : 1)"]
+      interval: 3s
+      timeout: 5s
+      retries: 30
+
+  mongo-init:
+    image: mongo:8.0-noble
+    depends_on:
+      mongo:
+        condition: service_healthy
+    entrypoint: ["mongosh", "--quiet", "mongodb://mongo:27017/?directConnection=true", "--eval"]
+    command:
+      - |
+        try {
+          rs.status();
+        } catch (error) {
+          if (error.codeName !== 'NotYetInitialized') throw error;
+          const result = rs.initiate({ _id: 'rs0', members: [{ _id: 0, host: 'mongo:27017' }] });
+          if (result.ok !== 1) throw Error(JSON.stringify(result));
+        }
+        for (let attempt = 0; attempt < 60; attempt++) {
+          if (db.hello().isWritablePrimary) quit(0);
+          sleep(1000);
+        }
+        throw Error('MongoDB did not elect a primary');
+
+volumes:
+  mongo-data:
