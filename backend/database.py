@@ -13,6 +13,11 @@ def mongo_client() -> MongoClient:
     return MongoClient(uri, serverSelectionTimeoutMS=3000)
 
 
+def service_database(client, name):
+    prefix = os.getenv("MONGODB_DB_PREFIX", "")
+    return client[f"{prefix}{name}"]
+
+
 def transaction(database, action):
     with database.client.start_session() as session:
         return session.with_transaction(

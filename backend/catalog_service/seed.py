@@ -3,7 +3,7 @@ from pathlib import Path
 
 from bson.decimal128 import Decimal128
 
-from backend.database import mongo_client, transaction
+from backend.database import mongo_client, service_database, transaction
 
 from .persistence import initialize_catalog, insert_product
 
@@ -12,7 +12,7 @@ def main() -> None:
     fixture = Path(__file__).with_name("produtos_demo.json")
     documents = json.loads(fixture.read_text(encoding="utf-8"))
     with mongo_client() as client:
-        database = client.catalogo
+        database = service_database(client, "catalogo")
         initialize_catalog(database)
 
         def seed(session):

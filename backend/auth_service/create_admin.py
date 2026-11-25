@@ -4,7 +4,7 @@ from getpass import getpass
 from pydantic import ValidationError
 from pymongo.errors import DuplicateKeyError
 
-from backend.database import mongo_client
+from backend.database import mongo_client, service_database
 
 from .accounts import Registration, create_account
 
@@ -23,7 +23,7 @@ def main() -> None:
         parser.exit(1, "Informe nome, e-mail e senha válidos.\n")
     try:
         with mongo_client() as client:
-            users = client.auth.usuarios
+            users = service_database(client, "auth").usuarios
             users.create_index("email", unique=True)
             create_account(users, data, "administrador")
     except DuplicateKeyError:

@@ -10,7 +10,7 @@ from fastapi.responses import JSONResponse
 from pymongo import ReturnDocument
 from pymongo.errors import PyMongoError
 
-from backend.database import mongo_client
+from backend.database import mongo_client, service_database
 from backend.service_http import ProductCodes, call_service, require_admin
 
 from . import persistence
@@ -23,7 +23,7 @@ from .models import (
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     with mongo_client() as client:
-        app.state.database = client.catalogo
+        app.state.database = service_database(client, "catalogo")
         persistence.initialize_catalog(app.state.database)
         yield
 

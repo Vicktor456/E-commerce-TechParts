@@ -10,7 +10,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 from pymongo.errors import PyMongoError
 
-from backend.database import mongo_client
+from backend.database import mongo_client, service_database
 from backend.service_http import ProductCodes, authenticate, call_service, require_admin
 
 from . import persistence
@@ -42,7 +42,7 @@ async def run_expiration(database, stop):
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     with mongo_client() as client:
-        app.state.database = client.compras
+        app.state.database = service_database(client, "compras")
         persistence.initialize_cart(app.state.database)
         stop = asyncio.Event()
         worker = asyncio.create_task(run_expiration(app.state.database, stop))

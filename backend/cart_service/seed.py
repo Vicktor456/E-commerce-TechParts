@@ -4,7 +4,7 @@ from pathlib import Path
 
 from pymongo import UpdateOne
 
-from backend.database import mongo_client
+from backend.database import mongo_client, service_database
 
 from .persistence import initialize_cart
 
@@ -14,7 +14,7 @@ def main():
     totals = json.loads(fixture.read_text(encoding="utf-8"))
     now = datetime.now(UTC)
     with mongo_client() as client:
-        database = client.compras
+        database = service_database(client, "compras")
         initialize_cart(database)
         result = database.estoques.bulk_write([
             UpdateOne(

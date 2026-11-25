@@ -71,3 +71,18 @@ O cadastro e o login usam `auth.usuarios`, com índice único no e-mail normaliz
 - Documentação da API de compras em `http://127.0.0.1:8002/docs`.
 
 O proxy Vite encaminha as chamadas públicas aos três serviços. Em uma implantação com HTTPS, configure `AUTH_COOKIE_SECURE=1` e encaminhe `/api/auth`, `/api/catalogo`, `/api/carrinho` e `/api/estoque` pelo mesmo domínio do frontend. Mantenha as rotas `/_interno` na rede dos serviços. Para alterar as URLs internas, configure `AUTH_SERVICE_URL`, `CATALOG_SERVICE_URL` e `CART_SERVICE_URL` nos serviços que as consultam.
+
+## Validação da prova de conceito
+
+Com o MongoDB local em execução, instale as ferramentas de validação em uma pasta temporária e execute a suíte na raiz do projeto:
+
+```powershell
+$env:POC_TOOLS = Join-Path $env:TEMP 'techparts-poc-tools'
+npm.cmd install --prefix $env:POC_TOOLS --no-package-lock --no-audit --no-fund newman@6.2.2 jsdom@29.0.2
+pnpm build
+.\.venv\Scripts\python.exe -X utf8 -m validacao.executar
+```
+
+A suíte usa bancos temporários no MongoDB, reinicia os três serviços de teste e verifica o catálogo, o estoque e um carrinho persistido. Ela executa a coleção Postman pelo Newman e verifica as oito telas no DOM. Para verificar também a persistência após a reinicialização do contêiner local do MongoDB, execute a suíte com `--restart-mongo` numa sessão que tenha acesso ao motor do Docker. A opção reinicia o serviço `mongo` do Compose, interrompendo brevemente o acesso local ao banco.
+
+Para rodar a coleção no Postman Desktop, importe [TechParts.postman_collection.json](validacao/TechParts.postman_collection.json), configure `baseUrl` com o endereço do frontend, informe as credenciais de administrador e escolha um e-mail de cliente novo com uma senha de pelo menos 15 caracteres. A coleção cria uma conta e um produto de teste no ambiente selecionado. O resultado da validação está em [Resultado da PoC](validacao/resultado.md).

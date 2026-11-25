@@ -10,7 +10,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pymongo.errors import DuplicateKeyError, PyMongoError
 
-from backend.database import mongo_client
+from backend.database import mongo_client, service_database
 
 from .accounts import Credentials, Profile, Registration, create_account
 from .passwords import verify_password
@@ -27,7 +27,7 @@ COOKIE_OPTIONS = {
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     with mongo_client() as client:
-        database = client.auth
+        database = service_database(client, "auth")
         database.usuarios.create_index("email", unique=True)
         database.sessoes.create_index("expira_em", expireAfterSeconds=0)
         app.state.database = database
