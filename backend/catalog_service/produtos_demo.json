@@ -1,0 +1,397 @@
+[
+  {
+    "codigo": 1,
+    "nome": "Placa-mãe ASUS Prime B650M-A II",
+    "marca": "ASUS",
+    "categoria": "placa-mae",
+    "descricao": "A base ideal para o seu próximo setup. A ASUS Prime B650M-A II combina suporte aos processadores AMD Ryzen, memória DDR5 de alta velocidade e conectividade completa em um formato compacto.",
+    "preco_atual": "899.90",
+    "ativo": true,
+    "especificacoes": {
+      "soquete": "AM5",
+      "chipset": "B650",
+      "tipo_memoria": "DDR5",
+      "Formato": "Micro ATX"
+    },
+    "demonstracao": {
+      "estoque_total": 15,
+      "estoque_reservado": 2,
+      "historico": [
+        {
+          "date": "2026-01-12",
+          "price": 999.9
+        },
+        {
+          "date": "2026-02-05",
+          "price": 949.9
+        },
+        {
+          "date": "2026-03-08",
+          "price": 899.9
+        }
+      ],
+      "destaque": "Destaque"
+    }
+  },
+  {
+    "codigo": 2,
+    "nome": "Monitor Gamer LG UltraGear 24”",
+    "marca": "LG",
+    "categoria": "monitor",
+    "descricao": "Mais fluidez em cada movimento. Tela IPS Full HD de 24 polegadas, cores precisas e taxa de atualização de 144 Hz para jogar, estudar e criar.",
+    "preco_atual": "1049.90",
+    "ativo": true,
+    "especificacoes": {
+      "painel": "IPS",
+      "taxa_atualizacao_hz": 144,
+      "Resolução": "1920 × 1080",
+      "Tempo de resposta": "1 ms"
+    },
+    "demonstracao": {
+      "estoque_total": 9,
+      "estoque_reservado": 1,
+      "historico": [
+        {
+          "date": "2026-01-12",
+          "price": 1149.9
+        },
+        {
+          "date": "2026-02-05",
+          "price": 1099.9
+        },
+        {
+          "date": "2026-03-08",
+          "price": 1049.9
+        }
+      ],
+      "destaque": "Mais vendido"
+    }
+  },
+  {
+    "codigo": 3,
+    "nome": "Processador AMD Ryzen 5 5600",
+    "marca": "AMD",
+    "categoria": "processador",
+    "descricao": "Desempenho para ir além. Com 6 núcleos e 12 threads, o Ryzen 5 5600 entrega velocidade para seus jogos e tarefas do dia a dia.",
+    "preco_atual": "749.90",
+    "ativo": true,
+    "especificacoes": {
+      "soquete": "AM4",
+      "Núcleos": "6",
+      "Threads": "12",
+      "Clock máximo": "4,4 GHz"
+    },
+    "demonstracao": {
+      "estoque_total": 23,
+      "estoque_reservado": 3,
+      "historico": [
+        {
+          "date": "2026-01-12",
+          "price": 849.9
+        },
+        {
+          "date": "2026-02-05",
+          "price": 799.9
+        },
+        {
+          "date": "2026-03-08",
+          "price": 749.9
+        }
+      ]
+    }
+  },
+  {
+    "codigo": 4,
+    "nome": "Memória Kingston Fury Beast 16GB",
+    "marca": "Kingston",
+    "categoria": "memoria",
+    "descricao": "Potência e estabilidade para multitarefa. Memória de 16 GB com dissipador de calor de perfil baixo e desempenho de alta velocidade.",
+    "preco_atual": "289.90",
+    "ativo": true,
+    "especificacoes": {
+      "Capacidade": "16 GB",
+      "tipo_memoria": "DDR4",
+      "Frequência": "3200 MHz"
+    },
+    "demonstracao": {
+      "estoque_total": 30,
+      "estoque_reservado": 4,
+      "historico": [
+        {
+          "date": "2026-01-12",
+          "price": 389.9
+        },
+        {
+          "date": "2026-02-05",
+          "price": 339.9
+        },
+        {
+          "date": "2026-03-08",
+          "price": 289.9
+        }
+      ]
+    }
+  },
+  {
+    "codigo": 5,
+    "nome": "Teclado Mecânico Redragon Kumara",
+    "marca": "Redragon",
+    "categoria": "teclado",
+    "descricao": "Precisão em cada tecla. Teclado mecânico compacto com switches táteis, iluminação RGB e estrutura resistente.",
+    "preco_atual": "219.90",
+    "ativo": true,
+    "especificacoes": {
+      "Switch": "Outemu Blue",
+      "Layout": "ABNT2",
+      "Iluminação": "RGB",
+      "Conexão": "USB"
+    },
+    "demonstracao": {
+      "estoque_total": 0,
+      "estoque_reservado": 0,
+      "historico": [
+        {
+          "date": "2026-01-12",
+          "price": 319.9
+        },
+        {
+          "date": "2026-02-05",
+          "price": 269.9
+        },
+        {
+          "date": "2026-03-08",
+          "price": 219.9
+        }
+      ]
+    }
+  },
+  {
+    "codigo": 6,
+    "nome": "Mouse Gamer Logitech G203",
+    "marca": "Logitech",
+    "categoria": "mouse",
+    "descricao": "Encontre a sua precisão. Design clássico, sensor de 8.000 DPI e iluminação personalizável para completar seu setup.",
+    "preco_atual": "149.90",
+    "ativo": true,
+    "especificacoes": {
+      "Sensor": "Óptico",
+      "Resolução": "8.000 DPI",
+      "Botões": "6",
+      "Conexão": "USB"
+    },
+    "demonstracao": {
+      "estoque_total": 20,
+      "estoque_reservado": 2,
+      "historico": [
+        {
+          "date": "2026-01-12",
+          "price": 249.9
+        },
+        {
+          "date": "2026-02-05",
+          "price": 199.9
+        },
+        {
+          "date": "2026-03-08",
+          "price": 149.9
+        }
+      ],
+      "destaque": "Melhor custo-benefício"
+    }
+  },
+  {
+    "codigo": 7,
+    "nome": "Placa-mãe Gigabyte B550M DS3H",
+    "marca": "Gigabyte",
+    "categoria": "placa-mae",
+    "descricao": "Confiabilidade para montar seu computador. Plataforma AM4 com suporte a memória DDR4 e armazenamento de alta velocidade.",
+    "preco_atual": "649.90",
+    "ativo": true,
+    "especificacoes": {
+      "soquete": "AM4",
+      "chipset": "B550",
+      "tipo_memoria": "DDR4",
+      "Formato": "Micro ATX"
+    },
+    "demonstracao": {
+      "estoque_total": 10,
+      "estoque_reservado": 1,
+      "historico": [
+        {
+          "date": "2026-01-12",
+          "price": 749.9
+        },
+        {
+          "date": "2026-02-05",
+          "price": 699.9
+        },
+        {
+          "date": "2026-03-08",
+          "price": 649.9
+        }
+      ]
+    }
+  },
+  {
+    "codigo": 8,
+    "nome": "Monitor Samsung T350 24”",
+    "marca": "Samsung",
+    "categoria": "monitor",
+    "descricao": "Uma visão mais ampla do seu trabalho. Tela IPS de 24 polegadas com bordas ultrafinas e cores vibrantes.",
+    "preco_atual": "629.90",
+    "ativo": true,
+    "especificacoes": {
+      "painel": "IPS",
+      "taxa_atualizacao_hz": 75,
+      "Resolução": "1920 × 1080"
+    },
+    "demonstracao": {
+      "estoque_total": 8,
+      "estoque_reservado": 1,
+      "historico": [
+        {
+          "date": "2026-01-12",
+          "price": 729.9
+        },
+        {
+          "date": "2026-02-05",
+          "price": 679.9
+        },
+        {
+          "date": "2026-03-08",
+          "price": 629.9
+        }
+      ]
+    }
+  },
+  {
+    "codigo": 9,
+    "nome": "Processador Intel Core i5-12400F",
+    "marca": "Intel",
+    "categoria": "processador",
+    "descricao": "Produtividade e jogos com a potência Intel. Processador de 12ª geração com arquitetura moderna e eficiência para suas tarefas.",
+    "preco_atual": "799.90",
+    "ativo": true,
+    "especificacoes": {
+      "soquete": "LGA 1700",
+      "Núcleos": "6",
+      "Threads": "12",
+      "Clock máximo": "4,4 GHz"
+    },
+    "demonstracao": {
+      "estoque_total": 12,
+      "estoque_reservado": 0,
+      "historico": [
+        {
+          "date": "2026-01-12",
+          "price": 899.9
+        },
+        {
+          "date": "2026-02-05",
+          "price": 849.9
+        },
+        {
+          "date": "2026-03-08",
+          "price": 799.9
+        }
+      ]
+    }
+  },
+  {
+    "codigo": 10,
+    "nome": "Placa-mãe MSI PRO B650M-P",
+    "marca": "MSI",
+    "categoria": "placa-mae",
+    "descricao": "Plataforma AM5 versátil com suporte a DDR5 para dar vida ao seu novo computador.",
+    "preco_atual": "959.90",
+    "ativo": true,
+    "especificacoes": {
+      "soquete": "AM5",
+      "chipset": "B650",
+      "tipo_memoria": "DDR5",
+      "Formato": "Micro ATX"
+    },
+    "demonstracao": {
+      "estoque_total": 7,
+      "estoque_reservado": 1,
+      "historico": [
+        {
+          "date": "2026-01-12",
+          "price": 1059.9
+        },
+        {
+          "date": "2026-02-05",
+          "price": 1009.9
+        },
+        {
+          "date": "2026-03-08",
+          "price": 959.9
+        }
+      ]
+    }
+  },
+  {
+    "codigo": 11,
+    "nome": "Monitor AOC Hero 27”",
+    "marca": "AOC",
+    "categoria": "monitor",
+    "descricao": "Imersão em uma tela de 27 polegadas com alto contraste e 165 Hz.",
+    "preco_atual": "1299.90",
+    "ativo": true,
+    "especificacoes": {
+      "painel": "VA",
+      "taxa_atualizacao_hz": 165,
+      "Resolução": "1920 × 1080"
+    },
+    "demonstracao": {
+      "estoque_total": 0,
+      "estoque_reservado": 0,
+      "historico": [
+        {
+          "date": "2026-01-12",
+          "price": 1399.9
+        },
+        {
+          "date": "2026-02-05",
+          "price": 1349.9
+        },
+        {
+          "date": "2026-03-08",
+          "price": 1299.9
+        }
+      ]
+    }
+  },
+  {
+    "codigo": 12,
+    "nome": "Memória Corsair Vengeance 32GB",
+    "marca": "Corsair",
+    "categoria": "memoria",
+    "descricao": "Mais espaço para criar, jogar e trabalhar. Kit de memória DDR5 para os projetos mais exigentes.",
+    "preco_atual": "599.90",
+    "ativo": true,
+    "especificacoes": {
+      "Capacidade": "32 GB",
+      "tipo_memoria": "DDR5",
+      "Frequência": "5200 MHz"
+    },
+    "demonstracao": {
+      "estoque_total": 11,
+      "estoque_reservado": 2,
+      "historico": [
+        {
+          "date": "2026-01-12",
+          "price": 699.9
+        },
+        {
+          "date": "2026-02-05",
+          "price": 649.9
+        },
+        {
+          "date": "2026-03-08",
+          "price": 599.9
+        }
+      ]
+    }
+  }
+]

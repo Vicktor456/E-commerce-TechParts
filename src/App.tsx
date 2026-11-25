@@ -191,191 +191,6 @@ const categories: { name: Category; icon: IconName }[] = [
   { name: "Teclados", icon: "keyboard" },
   { name: "Mouses", icon: "mouse" },
 ];
-const demoProducts: Product[] = [
-  {
-    id: 1,
-    name: "Placa-mãe ASUS Prime B650M-A II",
-    brand: "ASUS",
-    category: "Placas-mãe",
-    price: 899.9,
-    total: 15,
-    baseReserved: 2,
-    active: true,
-    specs: { Soquete: "AM5", Chipset: "B650", "Tipo de memória": "DDR5", Formato: "Micro ATX" },
-    description:
-      "A base ideal para o seu próximo setup. A ASUS Prime B650M-A II combina suporte aos processadores AMD Ryzen, memória DDR5 de alta velocidade e conectividade completa em um formato compacto.",
-    history: [],
-    badge: "Destaque",
-  },
-  {
-    id: 2,
-    name: "Monitor Gamer LG UltraGear 24”",
-    brand: "LG",
-    category: "Monitores",
-    price: 1049.9,
-    total: 9,
-    baseReserved: 1,
-    active: true,
-    specs: {
-      "Tipo de painel": "IPS",
-      "Taxa de atualização": "144 Hz",
-      Resolução: "1920 × 1080",
-      "Tempo de resposta": "1 ms",
-    },
-    description:
-      "Mais fluidez em cada movimento. Tela IPS Full HD de 24 polegadas, cores precisas e taxa de atualização de 144 Hz para jogar, estudar e criar.",
-    history: [],
-    badge: "Mais vendido",
-  },
-  {
-    id: 3,
-    name: "Processador AMD Ryzen 5 5600",
-    brand: "AMD",
-    category: "Processadores",
-    price: 749.9,
-    total: 23,
-    baseReserved: 3,
-    active: true,
-    specs: { Soquete: "AM4", Núcleos: "6", Threads: "12", "Clock máximo": "4,4 GHz" },
-    description:
-      "Desempenho para ir além. Com 6 núcleos e 12 threads, o Ryzen 5 5600 entrega velocidade para seus jogos e tarefas do dia a dia.",
-    history: [],
-  },
-  {
-    id: 4,
-    name: "Memória Kingston Fury Beast 16GB",
-    brand: "Kingston",
-    category: "Memórias",
-    price: 289.9,
-    total: 30,
-    baseReserved: 4,
-    active: true,
-    specs: { Capacidade: "16 GB", "Tipo de memória": "DDR4", Frequência: "3200 MHz" },
-    description:
-      "Potência e estabilidade para multitarefa. Memória de 16 GB com dissipador de calor de perfil baixo e desempenho de alta velocidade.",
-    history: [],
-  },
-  {
-    id: 5,
-    name: "Teclado Mecânico Redragon Kumara",
-    brand: "Redragon",
-    category: "Teclados",
-    price: 219.9,
-    total: 0,
-    baseReserved: 0,
-    active: true,
-    specs: { Switch: "Outemu Blue", Layout: "ABNT2", Iluminação: "RGB", Conexão: "USB" },
-    description:
-      "Precisão em cada tecla. Teclado mecânico compacto com switches táteis, iluminação RGB e estrutura resistente.",
-    history: [],
-  },
-  {
-    id: 6,
-    name: "Mouse Gamer Logitech G203",
-    brand: "Logitech",
-    category: "Mouses",
-    price: 149.9,
-    total: 20,
-    baseReserved: 2,
-    active: true,
-    specs: { Sensor: "Óptico", Resolução: "8.000 DPI", Botões: "6", Conexão: "USB" },
-    description:
-      "Encontre a sua precisão. Design clássico, sensor de 8.000 DPI e iluminação personalizável para completar seu setup.",
-    history: [],
-    badge: "Melhor custo-benefício",
-  },
-  {
-    id: 7,
-    name: "Placa-mãe Gigabyte B550M DS3H",
-    brand: "Gigabyte",
-    category: "Placas-mãe",
-    price: 649.9,
-    total: 10,
-    baseReserved: 1,
-    active: true,
-    specs: { Soquete: "AM4", Chipset: "B550", "Tipo de memória": "DDR4", Formato: "Micro ATX" },
-    description:
-      "Confiabilidade para montar seu computador. Plataforma AM4 com suporte a memória DDR4 e armazenamento de alta velocidade.",
-    history: [],
-  },
-  {
-    id: 8,
-    name: "Monitor Samsung T350 24”",
-    brand: "Samsung",
-    category: "Monitores",
-    price: 629.9,
-    total: 8,
-    baseReserved: 1,
-    active: true,
-    specs: { "Tipo de painel": "IPS", "Taxa de atualização": "75 Hz", Resolução: "1920 × 1080" },
-    description:
-      "Uma visão mais ampla do seu trabalho. Tela IPS de 24 polegadas com bordas ultrafinas e cores vibrantes.",
-    history: [],
-  },
-  {
-    id: 9,
-    name: "Processador Intel Core i5-12400F",
-    brand: "Intel",
-    category: "Processadores",
-    price: 799.9,
-    total: 12,
-    baseReserved: 0,
-    active: true,
-    specs: { Soquete: "LGA 1700", Núcleos: "6", Threads: "12", "Clock máximo": "4,4 GHz" },
-    description:
-      "Produtividade e jogos com a potência Intel. Processador de 12ª geração com arquitetura moderna e eficiência para suas tarefas.",
-    history: [],
-  },
-  {
-    id: 10,
-    name: "Placa-mãe MSI PRO B650M-P",
-    brand: "MSI",
-    category: "Placas-mãe",
-    price: 959.9,
-    total: 7,
-    baseReserved: 1,
-    active: true,
-    specs: { Soquete: "AM5", Chipset: "B650", "Tipo de memória": "DDR5", Formato: "Micro ATX" },
-    description: "Plataforma AM5 versátil com suporte a DDR5 para dar vida ao seu novo computador.",
-    history: [],
-  },
-  {
-    id: 11,
-    name: "Monitor AOC Hero 27”",
-    brand: "AOC",
-    category: "Monitores",
-    price: 1299.9,
-    total: 0,
-    baseReserved: 0,
-    active: true,
-    specs: { "Tipo de painel": "VA", "Taxa de atualização": "165 Hz", Resolução: "1920 × 1080" },
-    description: "Imersão em uma tela de 27 polegadas com alto contraste e 165 Hz.",
-    history: [],
-  },
-  {
-    id: 12,
-    name: "Memória Corsair Vengeance 32GB",
-    brand: "Corsair",
-    category: "Memórias",
-    price: 599.9,
-    total: 11,
-    baseReserved: 2,
-    active: true,
-    specs: { Capacidade: "32 GB", "Tipo de memória": "DDR5", Frequência: "5200 MHz" },
-    description:
-      "Mais espaço para criar, jogar e trabalhar. Kit de memória DDR5 para os projetos mais exigentes.",
-    history: [],
-  },
-];
-const initialProducts: Product[] = demoProducts.map((p) => ({
-  ...p,
-  history: [
-    { date: "2026-01-12", price: p.price + 100 },
-    { date: "2026-02-05", price: p.price + 50 },
-    { date: "2026-03-08", price: p.price },
-  ],
-}));
-
 function ProductArt({ product, large = false }: { product: Product; large?: boolean }) {
   const id = `art-${product.id}-${large ? "large" : "small"}`;
   const isBoard = product.category === "Placas-mãe";
@@ -659,7 +474,9 @@ const dateLabel = (date: string) => new Date(`${date}T12:00:00`).toLocaleDateStr
 
 export default function App() {
   const [route, setRoute] = useState(location.hash.slice(1) || "catalogo");
-  const [products, setProducts] = useState(initialProducts);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [catalogStatus, setCatalogStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [catalogAttempt, setCatalogAttempt] = useState(0);
   const [user, setUser] = useState<User | null>(null);
   const [accounts, setAccounts] = useState<Account[]>([
     { name: "Ana Silva", email: "cliente@techparts.com", password: "cliente123", role: "client" },
@@ -668,7 +485,7 @@ export default function App() {
   const [carts, setCarts] = useState<Record<string, Cart>>({});
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("");
-  const [maxPrice, setMaxPrice] = useState(2000);
+  const [maxPrice, setMaxPrice] = useState<number | null>(null);
   const [minPrice, setMinPrice] = useState("");
   const [tech, setTech] = useState<Record<string, string[]>>({});
   const [onlyAvailable, setOnlyAvailable] = useState(false);
@@ -681,6 +498,28 @@ export default function App() {
   const [demo, setDemo] = useState(false);
   const [period, setPeriod] = useState("all");
   const [tick, setTick] = useState(Date.now());
+  const priceLimit = products.reduce(
+    (limit, p) => Math.max(limit, Math.ceil(p.price / 10) * 10),
+    2000,
+  );
+  const retryCatalog = () => {
+    setCatalogStatus("loading");
+    setCatalogAttempt((attempt) => attempt + 1);
+  };
+  const catalogFeedback = (
+    <div className="empty-state">
+      {catalogStatus === "loading" ? (
+        <p role="status">Carregando produtos do catálogo…</p>
+      ) : (
+        <>
+          <p role="alert">Não foi possível carregar o catálogo.</p>
+          <button className="primary" onClick={retryCatalog}>
+            Tentar novamente
+          </button>
+        </>
+      )}
+    </div>
+  );
   const cart = user?.role === "client" ? carts[user.email] || emptyCart() : emptyCart();
   const cartCount = cart.items.reduce((sum, item) => sum + item.quantity, 0);
   const reserved = (p: Product) =>
@@ -705,6 +544,25 @@ export default function App() {
     window.addEventListener("hashchange", handler);
     return () => window.removeEventListener("hashchange", handler);
   }, []);
+  useEffect(() => {
+    const controller = new AbortController();
+
+    async function loadCatalog() {
+      try {
+        const response = await fetch("/api/catalogo/produtos", { signal: controller.signal });
+        if (!response.ok) throw new Error(`Catalog API returned ${response.status}`);
+        const catalog: Product[] = await response.json();
+        if (controller.signal.aborted) return;
+        setProducts(catalog);
+        setCatalogStatus("ready");
+      } catch {
+        if (!controller.signal.aborted) setCatalogStatus("error");
+      }
+    }
+
+    void loadCatalog();
+    return () => controller.abort();
+  }, [catalogAttempt]);
   useEffect(() => {
     if (toast) {
       const id = setTimeout(() => setToast(""), 4500);
@@ -735,7 +593,7 @@ export default function App() {
   const resetFilters = () => {
     setSearch("");
     setCategory("");
-    setMaxPrice(2000);
+    setMaxPrice(null);
     setMinPrice("");
     setTech({});
     setOnlyAvailable(false);
@@ -754,7 +612,7 @@ export default function App() {
             p.name.toLocaleLowerCase("pt-BR").includes(search.toLocaleLowerCase("pt-BR")) &&
             (!category || p.category === category) &&
             p.price >= Number(minPrice || 0) &&
-            p.price <= maxPrice &&
+            (maxPrice === null || p.price <= maxPrice) &&
             (!onlyAvailable || available(p) > 0) &&
             Object.entries(tech).every(
               ([key, values]) => !values.length || values.includes(p.specs[key]),
@@ -773,7 +631,7 @@ export default function App() {
   );
   const activeFilters =
     Number(!!category) +
-    Number(maxPrice < 2000 || !!minPrice) +
+    Number(maxPrice !== null || !!minPrice) +
     Object.values(tech).reduce((n, list) => n + list.length, 0) +
     Number(onlyAvailable);
   const selected = products.find((p) => p.id === Number(route.split("/")[1]));
@@ -881,7 +739,7 @@ export default function App() {
                 aria-label="Preço mínimo"
                 type="number"
                 min="0"
-                max={maxPrice}
+                max={maxPrice ?? undefined}
                 value={minPrice}
                 placeholder="0"
                 onChange={(e) => setMinPrice(e.target.value)}
@@ -897,8 +755,11 @@ export default function App() {
                 aria-label="Preço máximo"
                 type="number"
                 min="0"
-                value={maxPrice}
-                onChange={(e) => setMaxPrice(Math.max(0, Number(e.target.value)))}
+                value={maxPrice ?? ""}
+                placeholder="Sem limite"
+                onChange={(e) =>
+                  setMaxPrice(e.target.value ? Math.max(0, e.target.valueAsNumber) : null)
+                }
               />
             </div>
           </label>
@@ -908,14 +769,16 @@ export default function App() {
           aria-label="Limite de preço"
           type="range"
           min="0"
-          max="2000"
+          max={priceLimit}
           step="10"
-          value={maxPrice}
-          onChange={(e) => setMaxPrice(Number(e.target.value))}
+          value={Math.min(maxPrice ?? priceLimit, priceLimit)}
+          onChange={(e) =>
+            setMaxPrice(e.target.valueAsNumber === priceLimit ? null : e.target.valueAsNumber)
+          }
         />
         <div className="range-labels">
           <span>R$ 0</span>
-          <span>R$ 2.000</span>
+          <span>{money(priceLimit)}</span>
         </div>
       </section>
       {category &&
@@ -1159,9 +1022,11 @@ export default function App() {
               <h2>Encontre a próxima peça.</h2>
               <p>Tudo o que seu setup precisa, em um só lugar.</p>
             </div>
-            <span className="catalog-total">
-              {products.filter((p) => p.active).length} produtos no catálogo
-            </span>
+            {catalogStatus === "ready" && (
+              <span className="catalog-total">
+                {products.filter((p) => p.active).length} produtos no catálogo
+              </span>
+            )}
           </div>
           <div className="catalog-layout">
             <aside className={`filters ${filtersOpen ? "mobile-open" : ""}`}>
@@ -1193,11 +1058,13 @@ export default function App() {
                     <Icon name="filter" size={17} /> Filtros{" "}
                     {activeFilters > 0 && `(${activeFilters})`}
                   </button>
-                  <p>
-                    <strong>{filtered.length}</strong>{" "}
-                    {filtered.length === 1 ? "produto encontrado" : "produtos encontrados"}
-                    {search && <> para “{search}”</>}
-                  </p>
+                  {catalogStatus === "ready" && (
+                    <p>
+                      <strong>{filtered.length}</strong>{" "}
+                      {filtered.length === 1 ? "produto encontrado" : "produtos encontrados"}
+                      {search && <> para “{search}”</>}
+                    </p>
+                  )}
                 </div>
                 <label>
                   Ordenar por:{" "}
@@ -1232,11 +1099,11 @@ export default function App() {
                       </button>
                     )),
                   )}
-                  {(maxPrice < 2000 || minPrice) && (
+                  {(maxPrice !== null || minPrice) && (
                     <button
                       onClick={() => {
                         setMinPrice("");
-                        setMaxPrice(2000);
+                        setMaxPrice(null);
                       }}
                     >
                       Faixa de preço <Icon name="close" size={13} />
@@ -1249,7 +1116,7 @@ export default function App() {
                   )}
                 </div>
               )}
-              {filtered.length ? (
+              {catalogStatus !== "ready" ? catalogFeedback : filtered.length ? (
                 <>
                   <div className="product-grid">
                     {filtered.slice((page - 1) * 9, page * 9).map((p) => (
@@ -1374,11 +1241,11 @@ export default function App() {
             items={[
               "Catálogo",
               selected?.category || "Produto",
-              selected?.name || "Não encontrado",
+              selected?.name || (catalogStatus === "ready" ? "Não encontrado" : "Detalhes"),
             ]}
             go={() => go("catalogo")}
           />
-          {selected?.active ? (
+          {catalogStatus !== "ready" ? catalogFeedback : selected?.active ? (
             <>
               <div className="product-detail">
                 <div className="detail-art">
@@ -1962,7 +1829,7 @@ export default function App() {
                               ...old,
                               {
                                 ...p,
-                                id: Math.max(...old.map((x) => x.id)) + 1,
+                                id: Math.max(0, ...old.map((x) => x.id)) + 1,
                                 history: [
                                   { date: new Date().toISOString().slice(0, 10), price: p.price },
                                 ],

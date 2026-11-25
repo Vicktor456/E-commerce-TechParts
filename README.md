@@ -9,17 +9,26 @@ Pré-requisitos: Node.js 22, pnpm 10, Python 3.14 e Docker com Compose. No Windo
 ```powershell
 docker compose up -d
 docker compose exec mongo mongosh --quiet --eval "db.hello().isWritablePrimary"
-pnpm install --frozen-lockfile
-pnpm dev
 ```
 
-O comando do MongoDB deve retornar `true` após a inicialização do replica set local. Abra o endereço exibido pelo Vite para acessar as telas.
+O comando do MongoDB deve retornar `true` após a inicialização do replica set local.
 
-Para instalar as dependências Python em um ambiente virtual:
+Instale as dependências Python, carregue os produtos de demonstração e inicie a API:
 
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r backend/requirements.txt
+.\.venv\Scripts\python.exe -m backend.catalog_service.seed
+.\.venv\Scripts\python.exe -m uvicorn backend.catalog_service.main:app --reload
 ```
 
-O frontend usa dados de demonstração em memória. O primeiro fluxo a ser integrado ao MongoDB é a listagem do catálogo.
+Em outro terminal, inicie o frontend:
+
+```powershell
+pnpm install --frozen-lockfile
+pnpm dev
+```
+
+Abra o endereço exibido pelo Vite. A listagem consulta `GET /api/catalogo/produtos` e lê os produtos ativos de `catalogo.produtos`. A documentação da API está em `http://127.0.0.1:8000/docs`.
+
+A carga inicial pode ser executada novamente sem sobrescrever os produtos já cadastrados. Altere, por exemplo, o campo `nome` de um produto no MongoDB e recarregue a página para ver a alteração. Nesta etapa, estoque e histórico dos produtos de demonstração são dados ilustrativos. Autenticação, carrinho e alterações administrativas continuam simulados no frontend.
