@@ -90,13 +90,14 @@ class CatalogProduct(BaseModel):
     badge: str | None = None
 
     @classmethod
-    def from_document(cls, document: dict):
+    def from_document(cls, document: dict, stock: dict | None = None):
         demo = document.get("demonstracao", {})
+        stock = stock or {}
         return cls(
             id=document["codigo"], name=document["nome"], brand=document["marca"],
             category=CATEGORY_LABELS.get(document["categoria"], document["categoria"]),
             price=float(price_decimal(document["preco_atual"])),
-            total=demo.get("estoque_total", 0), baseReserved=demo.get("estoque_reservado", 0),
+            total=stock.get("total", 0), baseReserved=stock.get("baseReserved", 0),
             active=document["ativo"], description=document["descricao"],
             specs={spec_label(key): spec_display(key, value)
                    for key, value in document.get("especificacoes", {}).items()},

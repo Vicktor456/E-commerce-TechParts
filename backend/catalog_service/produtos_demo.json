@@ -14,8 +14,6 @@
       "Formato": "Micro ATX"
     },
     "demonstracao": {
-      "estoque_total": 15,
-      "estoque_reservado": 2,
       "destaque": "Destaque"
     }
   },
@@ -34,8 +32,6 @@
       "Tempo de resposta": "1 ms"
     },
     "demonstracao": {
-      "estoque_total": 9,
-      "estoque_reservado": 1,
       "destaque": "Mais vendido"
     }
   },
@@ -52,10 +48,6 @@
       "Núcleos": "6",
       "Threads": "12",
       "Clock máximo": "4,4 GHz"
-    },
-    "demonstracao": {
-      "estoque_total": 23,
-      "estoque_reservado": 3
     }
   },
   {
@@ -70,10 +62,6 @@
       "Capacidade": "16 GB",
       "tipo_memoria": "DDR4",
       "Frequência": "3200 MHz"
-    },
-    "demonstracao": {
-      "estoque_total": 30,
-      "estoque_reservado": 4
     }
   },
   {
@@ -89,10 +77,6 @@
       "Layout": "ABNT2",
       "Iluminação": "RGB",
       "Conexão": "USB"
-    },
-    "demonstracao": {
-      "estoque_total": 0,
-      "estoque_reservado": 0
     }
   },
   {
@@ -110,8 +94,6 @@
       "Conexão": "USB"
     },
     "demonstracao": {
-      "estoque_total": 20,
-      "estoque_reservado": 2,
       "destaque": "Melhor custo-benefício"
     }
   },
@@ -128,10 +110,6 @@
       "chipset": "B550",
       "tipo_memoria": "DDR4",
       "Formato": "Micro ATX"
-    },
-    "demonstracao": {
-      "estoque_total": 10,
-      "estoque_reservado": 1
     }
   },
   {
@@ -146,10 +124,6 @@
       "painel": "IPS",
       "taxa_atualizacao_hz": 75,
       "Resolução": "1920 × 1080"
-    },
-    "demonstracao": {
-      "estoque_total": 8,
-      "estoque_reservado": 1
     }
   },
   {
@@ -165,10 +139,6 @@
       "Núcleos": "6",
       "Threads": "12",
       "Clock máximo": "4,4 GHz"
-    },
-    "demonstracao": {
-      "estoque_total": 12,
-      "estoque_reservado": 0
     }
   },
   {
@@ -184,10 +154,6 @@
       "chipset": "B650",
       "tipo_memoria": "DDR5",
       "Formato": "Micro ATX"
-    },
-    "demonstracao": {
-      "estoque_total": 7,
-      "estoque_reservado": 1
     }
   },
   {
@@ -202,10 +168,6 @@
       "painel": "VA",
       "taxa_atualizacao_hz": 165,
       "Resolução": "1920 × 1080"
-    },
-    "demonstracao": {
-      "estoque_total": 0,
-      "estoque_reservado": 0
     }
   },
   {
@@ -220,10 +182,6 @@
       "Capacidade": "32 GB",
       "tipo_memoria": "DDR5",
       "Frequência": "5200 MHz"
-    },
-    "demonstracao": {
-      "estoque_total": 11,
-      "estoque_reservado": 2
     }
   }
 ]

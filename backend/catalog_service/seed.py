@@ -3,9 +3,9 @@ from pathlib import Path
 
 from bson.decimal128 import Decimal128
 
-from backend.database import mongo_client
+from backend.database import mongo_client, transaction
 
-from .persistence import initialize_catalog, insert_product, transaction
+from .persistence import initialize_catalog, insert_product
 
 
 def main() -> None:

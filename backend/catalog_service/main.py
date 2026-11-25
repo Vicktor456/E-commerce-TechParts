@@ -2,10 +2,7 @@ import re
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from decimal import Decimal
-from os import getenv
 from typing import Annotated, Literal
-from urllib.error import HTTPError, URLError
-from urllib.request import Request as AuthRequest, urlopen
 
 from bson.decimal128 import Decimal128
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
@@ -14,6 +11,7 @@ from pymongo import ReturnDocument
 from pymongo.errors import PyMongoError
 
 from backend.database import mongo_client
+from backend.service_http import ProductCodes, call_service, require_admin
 
 from . import persistence
 from .models import (
@@ -45,21 +43,22 @@ async def database_unavailable(_request: Request, _error: PyMongoError):
     return JSONResponse(status_code=503, content={"detail": "Banco de dados do catálogo indisponível."})
 
 
-def require_admin(request: Request) -> None:
-    cookie = request.headers.get("cookie")
-    if not cookie:
-        raise HTTPException(401, "Faça login para continuar.")
-    url = getenv("AUTH_SERVICE_URL", "http://127.0.0.1:8001")
-    auth_request = AuthRequest(f"{url.rstrip('/')}/api/auth/admin", headers={"Cookie": cookie})
-    try:
-        with urlopen(auth_request, timeout=4):
-            pass
-    except HTTPError as error:
-        if error.code in (401, 403):
-            raise HTTPException(error.code, "Acesso administrativo restrito.") from error
-        raise HTTPException(503, "Serviço de autenticação indisponível.") from error
-    except (URLError, TimeoutError) as error:
-        raise HTTPException(503, "Serviço de autenticação indisponível.") from error
+def products_with_stock(documents) -> list[CatalogProduct]:
+    products = list(documents)
+    if not products:
+        return []
+    stocks = call_service(
+        "CART_SERVICE_URL", "http://127.0.0.1:8002", "/_interno/estoque/saldos",
+        body={"codes": [document["codigo"] for document in products]},
+    )
+    return [CatalogProduct.from_document(document, stocks.get(str(document["codigo"])))
+            for document in products]
+
+
+@app.post("/_interno/catalogo/produtos", response_model_exclude_none=True)
+def product_references(request: Request, data: ProductCodes) -> list[CatalogProduct]:
+    documents = request.app.state.database.produtos.find({"codigo": {"$in": data.codes}})
+    return [CatalogProduct.from_document(document) for document in documents]
 
 
 def product_document(request: Request, code: int, *, active_only: bool = True) -> dict:
@@ -103,10 +102,8 @@ def list_products(
             if price is not None
         }
     if disponivel:
-        query["$expr"] = {"$gt": [
-            {"$ifNull": ["$demonstracao.estoque_total", 0]},
-            {"$ifNull": ["$demonstracao.estoque_reservado", 0]},
-        ]}
+        codes = call_service("CART_SERVICE_URL", "http://127.0.0.1:8002", "/_interno/estoque/disponiveis")
+        query["codigo"] = {"$in": codes}
     specs = {}
     for item in especificacao or []:
         key, delimiter, value = item.partition(":")
@@ -129,7 +126,7 @@ def list_products(
     offset = (pagina - 1) * limite
     documents = products.find(query).sort(sort).skip(offset).limit(limite)
     return ProductPage(
-        items=[CatalogProduct.from_document(document) for document in documents],
+        items=products_with_stock(documents),
         total=products.count_documents(query),
     )
 
@@ -163,7 +160,7 @@ def list_filters(request: Request) -> CatalogFilters:
 
 @app.get(f"{PUBLIC}/produtos/{{code}}", response_model_exclude_none=True)
 def product_details(request: Request, code: int) -> CatalogProduct:
-    return CatalogProduct.from_document(product_document(request, code))
+    return products_with_stock([product_document(request, code)])[0]
 
 
 def history_page(request: Request, product: dict, start, end, page: int) -> HistoryPage:
@@ -199,7 +196,7 @@ def price_history(
 @app.get(ADMIN, dependencies=ADMIN_ONLY, response_model_exclude_none=True)
 def list_admin_products(request: Request) -> list[CatalogProduct]:
     documents = request.app.state.database.produtos.find().sort("codigo")
-    return [CatalogProduct.from_document(document) for document in documents]
+    return products_with_stock(documents)
 
 
 @app.post(ADMIN, status_code=201, dependencies=ADMIN_ONLY, response_model_exclude_none=True)

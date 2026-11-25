@@ -2,17 +2,9 @@ from datetime import UTC, datetime
 
 from bson.decimal128 import Decimal128
 from pymongo import DESCENDING, ReturnDocument
-from pymongo.read_concern import ReadConcern
-from pymongo.write_concern import WriteConcern
+from backend.database import transaction
 
 from .models import price_decimal
-
-
-def transaction(database, action):
-    with database.client.start_session() as session:
-        return session.with_transaction(
-            action, read_concern=ReadConcern("snapshot"), write_concern=WriteConcern("majority"),
-        )
 
 
 def record_price(database, product_id, price, recorded_at, session):

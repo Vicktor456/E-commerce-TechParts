@@ -9,6 +9,8 @@ export default defineConfig({
     proxy: {
       '/api/catalogo': 'http://127.0.0.1:8000',
       '/api/auth': 'http://127.0.0.1:8001',
+      '/api/carrinho': 'http://127.0.0.1:8002',
+      '/api/estoque': 'http://127.0.0.1:8002',
     },
   },
   resolve: {

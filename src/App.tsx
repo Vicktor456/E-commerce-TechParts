@@ -4,6 +4,8 @@ import { auth, AuthError } from "./auth";
 import type { User } from "./auth";
 import { catalog, CatalogError, catalogPageSize, historyPageSize } from "./catalog";
 import type { CatalogFilters, Category, Product } from "./catalog";
+import { CartError, purchases } from "./cart";
+import type { Cart } from "./cart";
 
 type IconName =
   | "search"
@@ -449,8 +451,7 @@ function ProductArt({ product, large = false }: { product: Product; large?: bool
   );
 }
 
-type Cart = { items: { id: number; quantity: number }[]; touched: number; expired?: boolean };
-const emptyCart = (): Cart => ({ items: [], touched: Date.now() });
+const emptyCart: Cart = { items: [] };
 const technicalFields = (category: string) =>
   category === "Placas-mãe"
     ? ["Soquete", "Chipset", "Tipo de memória"]
@@ -479,19 +480,19 @@ const catalogErrorMessage = (error: unknown) =>
 export default function App() {
   const [route, setRoute] = useState(location.hash.slice(1) || "catalogo");
   const isAdmin = route.startsWith("admin/");
-  const [products, setProducts] = useState<Product[]>([]);
   const [catalogStatus, setCatalogStatus] = useState<LoadStatus>("loading");
   const [catalogAttempt, setCatalogAttempt] = useState(0);
   const [catalogPage, setCatalogPage] = useState({ items: [] as Product[], total: 0 });
   const [filters, setFilters] = useState<CatalogFilters>({ counts: {}, specs: {}, maxPrice: 0 });
   const [details, setDetails] = useState<{ id: number; status: LoadStatus; product?: Product }>();
   const [adminProducts, setAdminProducts] = useState<Product[]>([]);
-  const [simulatedStock, setSimulatedStock] = useState<Record<number, number>>({});
   const [pendingProduct, setPendingProduct] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [adminAccess, setAdminAccess] = useState<"pending" | "allowed" | "denied" | "error">("pending");
-  const [carts, setCarts] = useState<Record<string, Cart>>({});
+  const [cartState, setCartState] = useState<{ owner: string; data: Cart; status: LoadStatus }>();
+  const [cartAttempt, setCartAttempt] = useState(0);
+  const [cartBusy, setCartBusy] = useState(false);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<Category | "">("");
   const [maxPrice, setMaxPrice] = useState<number | null>(null);
@@ -505,16 +506,17 @@ export default function App() {
   const [returnTo, setReturnTo] = useState("catalogo");
   const [confirmRemove, setConfirmRemove] = useState<Product | null>(null);
   const [demo, setDemo] = useState(false);
-  const [tick, setTick] = useState(Date.now());
   const priceLimit = Math.max(2000, Math.ceil(filters.maxPrice / 10) * 10);
   const isCatalog = route === "catalogo";
+  const isCart = route === "carrinho";
+  const isStock = route === "admin/estoque";
+  const cartOwner = user?.role === "client" ? user.id : undefined;
   const detailId = route.startsWith("produto/") ? Number(route.split("/")[1]) || 0 : null;
   const detailStatus = details && details.id === detailId ? details.status : "loading";
   const selected = details && details.id === detailId ? details.product : undefined;
   const loadingCatalog = isCatalog ? catalogStatus === "loading" : !isAdmin && detailStatus === "loading";
   const catalogTotal = Object.values(filters.counts).reduce((sum, count) => sum + count, 0);
   const availableSpecs = filters.specs[category] ?? {};
-  const withSimulatedStock = (p: Product) => ({ ...p, total: simulatedStock[p.id] ?? p.total });
   const retryCatalog = () => {
     setCatalogStatus("loading");
     setCatalogAttempt((attempt) => attempt + 1);
@@ -533,15 +535,12 @@ export default function App() {
       )}
     </div>
   );
-  const cart = user?.role === "client" ? carts[user.email] || emptyCart() : emptyCart();
+  const ownCart = cartState?.owner === cartOwner ? cartState : undefined;
+  const cart = ownCart?.data ?? emptyCart;
+  const cartStatus = ownCart?.status ?? "loading";
   const cartCount = cart.items.reduce((sum, item) => sum + item.quantity, 0);
-  const reserved = (p: Product) =>
-    p.baseReserved +
-    Object.values(carts).reduce(
-      (sum, c) => sum + c.items.filter((i) => i.id === p.id).reduce((s, i) => s + i.quantity, 0),
-      0,
-    );
-  const available = (p: Product) => Math.max(0, (simulatedStock[p.id] ?? p.total) - reserved(p));
+  const cartTotal = cart.items.reduce((sum, item) => sum + (item.product?.price ?? 0) * item.quantity, 0);
+  const available = (p: Product) => Math.max(0, p.total - p.baseReserved);
   const notify = (message: string) => setToast(message);
   const go = (path: string) => {
     location.hash = path;
@@ -553,6 +552,7 @@ export default function App() {
     try {
       await auth.logout();
       setUser(null);
+      setCartState(undefined);
       setAdminProducts([]);
       setAdminAccess("pending");
       go("catalogo");
@@ -581,7 +581,6 @@ export default function App() {
     catalog.adminList(controller.signal).then((items) => {
       if (controller.signal.aborted) return;
       setAdminProducts(items);
-      setProducts((old) => mergeProducts(old, items));
       setAdminAccess("allowed");
     }).catch((error) => {
       if (controller.signal.aborted) return;
@@ -589,7 +588,7 @@ export default function App() {
       setAdminAccess(denied ? "denied" : "error");
     });
     return () => controller.abort();
-  }, [isAdmin, user, catalogAttempt]);
+  }, [isAdmin, isStock, user, catalogAttempt]);
   useEffect(() => {
     const handler = () => {
       setRoute(location.hash.slice(1) || "catalogo");
@@ -611,7 +610,6 @@ export default function App() {
           return;
         }
         setCatalogPage(result);
-        setProducts((old) => mergeProducts(old, result.items));
         setCatalogStatus("ready");
       }).catch((error) => {
         if (!controller.signal.aborted) {
@@ -640,12 +638,10 @@ export default function App() {
     catalog.details(detailId, controller.signal).then((product) => {
       if (controller.signal.aborted) return;
       setDetails({ id: detailId, status: "ready", product });
-      setProducts((old) => mergeProducts(old, [product]));
     }).catch((error) => {
       if (controller.signal.aborted) return;
       if (error instanceof CatalogError && error.status === 404) {
         setDetails({ id: detailId, status: "ready" });
-        setProducts((old) => old.map((p) => p.id === detailId ? { ...p, active: false } : p));
       } else {
         setDetails({ id: detailId, status: "error" });
       }
@@ -659,23 +655,23 @@ export default function App() {
     }
   }, [toast]);
   useEffect(() => {
-    const id = setInterval(() => {
-      const now = Date.now();
-      setTick(now);
-      setCarts((old) => {
-        let changed = false;
-        const next = { ...old };
-        Object.entries(old).forEach(([email, c]) => {
-          if (c.items.length && now - c.touched >= 30 * 60 * 1000) {
-            next[email] = { items: [], touched: now, expired: true };
-            changed = true;
-          }
-        });
-        return changed ? next : old;
-      });
-    }, 1000);
-    return () => clearInterval(id);
-  }, []);
+    if (!cartOwner) return;
+    const controller = new AbortController();
+    setCartState((previous) => ({
+      owner: cartOwner,
+      data: previous?.owner === cartOwner ? previous.data : emptyCart,
+      status: "loading",
+    }));
+    purchases.cart(controller.signal).then((data) => {
+      if (!controller.signal.aborted) setCartState({ owner: cartOwner, data, status: "ready" });
+    }).catch(() => {
+      if (!controller.signal.aborted)
+        setCartState((previous) => previous?.owner === cartOwner
+          ? { ...previous, status: "error" }
+          : { owner: cartOwner, data: emptyCart, status: "error" });
+    });
+    return () => controller.abort();
+  }, [cartOwner, isCart, cartAttempt]);
   useEffect(() => {
     setPage(1);
   }, [search, category, maxPrice, minPrice, tech, onlyAvailable, sort]);
@@ -695,8 +691,12 @@ export default function App() {
   const pageCount = Math.ceil(catalogPage.total / catalogPageSize);
   const firstPageLink = Math.max(1, Math.min(page - 2, pageCount - 4));
   const updateProduct = (product: Product) => {
-    setAdminProducts((old) => mergeProducts(old, [product]));
-    setProducts((old) => mergeProducts(old, [product]));
+    setAdminProducts((old) => {
+      const previous = old.find((item) => item.id === product.id);
+      return mergeProducts(old, [previous
+        ? { ...product, total: previous.total, baseReserved: previous.baseReserved }
+        : product]);
+    });
   };
   const saveProduct = async (product: ProductDraft) => {
     updateProduct(await catalog.save(product));
@@ -726,29 +726,28 @@ export default function App() {
     setReturnTo(origin);
     go("login");
   };
-  const updateCart = (id: number, quantity: number) => {
-    if (!user || user.role !== "client") return;
-    const p = products.find((p) => p.id === id);
-    const current = cart.items.find((i) => i.id === id)?.quantity || 0;
-    if (quantity > 0 && (!p || !p.active))
-      return notify("Este produto foi removido do catálogo. Remova-o do carrinho.");
-    if (p && quantity > available(p) + current)
-      return notify(
-        `Estoque insuficiente. Você pode reservar até ${available(p) + current} unidades deste produto.`,
-      );
-    setCarts((old) => ({
-      ...old,
-      [user.email]: {
-        items:
-          quantity <= 0
-            ? cart.items.filter((i) => i.id !== id)
-            : current
-              ? cart.items.map((i) => (i.id === id ? { ...i, quantity } : i))
-              : [...cart.items, { id, quantity }],
-        touched: Date.now(),
-      },
-    }));
-    if (quantity === 0) notify("Produto removido. A reserva foi liberada.");
+  const updateCart = async (id: number, quantity: number, added = false) => {
+    if (!cartOwner || cartBusy || cartStatus !== "ready") return;
+    setCartBusy(true);
+    try {
+      await purchases.setQuantity(id, quantity);
+      if (added) {
+        notify("Produto adicionado ao carrinho e reservado.");
+        go("carrinho");
+      } else if (!quantity) {
+        notify("Produto removido. A reserva foi liberada.");
+      }
+    } catch (error) {
+      notify(error instanceof CartError ? error.message : "Não foi possível atualizar o carrinho.");
+      if (error instanceof CartError && error.status === 409)
+        setCatalogAttempt((attempt) => attempt + 1);
+    } finally {
+      setCartState((previous) => previous?.owner === cartOwner
+        ? { ...previous, status: "loading" }
+        : previous);
+      setCartAttempt((attempt) => attempt + 1);
+      setCartBusy(false);
+    }
   };
   const addToCart = (p: Product) => {
     if (!user) {
@@ -760,10 +759,7 @@ export default function App() {
       return;
     }
     const current = cart.items.find((i) => i.id === p.id)?.quantity || 0;
-    if (available(p) <= 0) return notify("Não há mais unidades disponíveis.");
-    updateCart(p.id, current + 1);
-    notify("Produto adicionado e reservado por 30 minutos.");
-    go("carrinho");
+    void updateCart(p.id, current + 1, true);
   };
   function StockBadge({ product }: { product: Product }) {
     const ok = available(product) > 0;
@@ -1091,7 +1087,7 @@ export default function App() {
               </span>
               <p>
                 <strong>Seu upgrade, no seu tempo</strong>
-                <span>Reserve seus itens por 30 minutos</span>
+                <span>Reserve seus itens no carrinho</span>
               </p>
             </div>
           </section>
@@ -1354,15 +1350,21 @@ export default function App() {
                   </span>
                   <button
                     className="primary add-button"
-                    disabled={!available(selected)}
+                    disabled={!available(selected) || authLoading || cartBusy ||
+                      (user?.role === "client" && cartStatus !== "ready")}
                     onClick={() => addToCart(selected)}
                   >
                     <Icon name="cart" />
                     {available(selected) ? "Adicionar ao carrinho" : "Produto indisponível"}
                   </button>
                   <div className="reservation-note">
-                    <Icon name="clock" size={17} /> Reserva válida por 30 minutos de inatividade.
+                    <Icon name="cart" size={17} /> Remover o item do carrinho libera a reserva.
                   </div>
+                  {user?.role === "client" && cartStatus === "error" && (
+                    <button className="text-button" onClick={() => setCartAttempt((attempt) => attempt + 1)}>
+                      Tentar carregar o carrinho novamente
+                    </button>
+                  )}
                   {!user && available(selected) > 0 && (
                     <small>Você precisará entrar na sua conta para reservar.</small>
                   )}
@@ -1456,7 +1458,7 @@ export default function App() {
         </main>
       )}
 
-      {route === "carrinho" && (
+      {isCart && (
         <main className="container inner-page">
           <Breadcrumb items={["Catálogo", "Meu carrinho"]} go={() => go("catalogo")} />
           <div className="page-heading">
@@ -1472,7 +1474,9 @@ export default function App() {
               <Icon name="arrow" size={16} />
             </button>
           </div>
-          {user?.role !== "client" ? (
+          {authLoading || (user?.role === "client" && !ownCart?.data.items.length && cartStatus === "loading") ? (
+            <div className="empty-state surface" role="status">Carregando carrinho…</div>
+          ) : user?.role !== "client" ? (
             <div className="empty-state surface">
               <Icon name="user" size={36} />
               <h2>Seu carrinho é pessoal.</h2>
@@ -1483,37 +1487,32 @@ export default function App() {
             </div>
           ) : (
             <>
-              {cart.expired && (
-                <div className="alert warning">
-                  <Icon name="clock" />
-                  <div>
-                    <strong>Seu carrinho expirou e os itens foram liberados.</strong>
-                    <p>
-                      A reserva terminou após 30 minutos de inatividade. Você pode começar uma nova
-                      seleção.
-                    </p>
-                  </div>
+              {cartStatus === "error" && (
+                <div className="alert warning" role="alert">
+                  <p>Não foi possível carregar o carrinho.</p>
+                  <button className="secondary" onClick={() => setCartAttempt((attempt) => attempt + 1)}>
+                    Tentar novamente
+                  </button>
                 </div>
               )}
               {cart.items.length ? (
                 <>
-                  <div className="alert info">
-                    <Icon name="clock" />
-                    <div>
-                      <strong>
-                        Seus itens estão reservados por mais{" "}
-                        {Math.max(0, Math.ceil((1800000 - (tick - cart.touched)) / 60000))} minutos.
-                      </strong>
-                      <p>
-                        A reserva expira após 30 minutos de inatividade. Alterar o carrinho renova
-                        esse prazo.
-                      </p>
-                    </div>
-                  </div>
                   <div className="cart-layout">
                     <div className="cart-items">
                       {cart.items.map((item) => {
-                        const p = products.find((p) => p.id === item.id)!;
+                        const p = item.product;
+                        if (!p) return (
+                          <article className="cart-item surface" key={item.id}>
+                            <div className="cart-item-info">
+                              <p>Produto removido do catálogo</p>
+                              <button
+                                className="remove-link"
+                                disabled={cartBusy || cartStatus !== "ready"}
+                                onClick={() => void updateCart(item.id, 0)}
+                              >Remover</button>
+                            </div>
+                          </article>
+                        );
                         return (
                           <article className="cart-item surface" key={item.id}>
                             <div className="cart-art">
@@ -1535,7 +1534,11 @@ export default function App() {
                                   Produto removido do catálogo · remova o item
                                 </span>
                               )}
-                              <button className="remove-link" onClick={() => updateCart(p.id, 0)}>
+                              <button
+                                className="remove-link"
+                                disabled={cartBusy || cartStatus !== "ready"}
+                                onClick={() => void updateCart(p.id, 0)}
+                              >
                                 <Icon name="trash" size={14} />
                                 Remover
                               </button>
@@ -1544,25 +1547,34 @@ export default function App() {
                               <div className="stepper">
                                 <button
                                   aria-label={`Diminuir quantidade de ${p.name}`}
-                                  disabled={item.quantity <= 1 || !p.active}
+                                  disabled={item.quantity <= 1 || cartBusy || cartStatus !== "ready"}
                                   onClick={() => updateCart(p.id, item.quantity - 1)}
                                 >
                                   <Icon name="minus" size={14} />
                                 </button>
                                 <input
+                                  key={item.quantity}
                                   aria-label={`Quantidade de ${p.name}`}
                                   type="number"
                                   min="1"
-                                  value={item.quantity}
-                                  disabled={!p.active}
-                                  onChange={(e) => {
-                                    const q = Number(e.target.value);
-                                    if (q >= 1 && Number.isInteger(q)) updateCart(p.id, q);
+                                  max="1000000"
+                                  defaultValue={item.quantity}
+                                  disabled={!p.active || cartBusy || cartStatus !== "ready"}
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter") e.currentTarget.blur();
+                                  }}
+                                  onBlur={(e) => {
+                                    const quantity = e.currentTarget.valueAsNumber;
+                                    e.currentTarget.value = String(item.quantity);
+                                    if (quantity !== item.quantity && Number.isInteger(quantity) &&
+                                        quantity >= 1 && quantity <= 1_000_000) {
+                                      void updateCart(p.id, quantity);
+                                    }
                                   }}
                                 />
                                 <button
                                   aria-label={`Aumentar quantidade de ${p.name}`}
-                                  disabled={!p.active}
+                                  disabled={!p.active || cartBusy || cartStatus !== "ready"}
                                   onClick={() => updateCart(p.id, item.quantity + 1)}
                                 >
                                   <Icon name="plus" size={14} />
@@ -1580,31 +1592,20 @@ export default function App() {
                       <div>
                         <span>Produtos ({cartCount})</span>
                         <strong>
-                          {money(
-                            cart.items.reduce(
-                              (s, i) => s + products.find((p) => p.id === i.id)!.price * i.quantity,
-                              0,
-                            ),
-                          )}
+                          {money(cartTotal)}
                         </strong>
                       </div>
                       <div className="summary-total">
                         <span>Total estimado</span>
                         <strong>
-                          {money(
-                            cart.items.reduce(
-                              (s, i) => s + products.find((p) => p.id === i.id)!.price * i.quantity,
-                              0,
-                            ),
-                          )}
+                          {money(cartTotal)}
                         </strong>
                       </div>
                       <div className="reserved-success">
                         <Icon name="check" size={19} /> Itens reservados
                       </div>
                       <p>
-                        Esta é uma simulação acadêmica. O fluxo termina na reserva, sem checkout ou
-                        pagamento.
+                        Os valores usam os preços atuais do catálogo.
                       </p>
                       <button className="secondary" onClick={() => go("catalogo")}>
                         Continuar navegando
@@ -1612,36 +1613,8 @@ export default function App() {
                       </button>
                     </aside>
                   </div>
-                  <details className="simulation-tools">
-                    <summary>Simular estados do carrinho</summary>
-                    <p>Use estes controles apenas para explorar os estados do protótipo.</p>
-                    <button
-                      className="secondary"
-                      onClick={() => {
-                        setCarts((old) => ({
-                          ...old,
-                          [user.email]: { items: [], touched: Date.now(), expired: true },
-                        }));
-                        notify("Expiração simulada. Todas as reservas foram liberadas.");
-                      }}
-                    >
-                      Simular expiração
-                    </button>
-                    <button
-                      className="secondary"
-                      onClick={() => {
-                        const id = cart.items[0].id;
-                        setProducts((old) =>
-                          old.map((p) => (p.id === id ? { ...p, active: false } : p)),
-                        );
-                        notify("O primeiro item foi marcado como removido no carrinho.");
-                      }}
-                    >
-                      Simular produto removido
-                    </button>
-                  </details>
                 </>
-              ) : (
+              ) : cartStatus === "ready" && (
                 <div className="empty-state surface">
                   <span className="empty-icon">
                     <Icon name="cart" size={35} />
@@ -1682,9 +1655,7 @@ export default function App() {
             <div className="admin-sidebar-bottom">
               <Icon name="shield" size={18} />
               <p>
-                Ambiente de demonstração
-                <br />
-                <span>Estoque simulado nesta sessão</span>
+                Área administrativa
               </p>
             </div>
             <button
@@ -1851,8 +1822,7 @@ export default function App() {
                       <div>
                         <strong>Disponível = quantidade total − quantidade reservada</strong>
                         <p>
-                          As reservas dos carrinhos são refletidas aqui em tempo real e liberadas
-                          após a expiração.
+                          O saldo é calculado a partir das reservas registradas nos carrinhos.
                         </p>
                       </div>
                     </div>
@@ -1872,14 +1842,15 @@ export default function App() {
                           </tr>
                         </thead>
                         <tbody>
-                          {adminProducts.map(withSimulatedStock).map((p) => (
+                          {adminProducts.map((p) => (
                             <StockRow
-                              key={`${p.id}-${p.total}-${reserved(p)}`}
+                              key={`${p.id}-${p.total}-${p.baseReserved}`}
                               product={p}
-                              reserved={reserved(p)}
-                              onSave={(total) => {
-                                setSimulatedStock((old) => ({ ...old, [p.id]: total }));
-                                notify("Estoque atualizado em todas as telas.");
+                              onSave={async (total) => {
+                                const stock = await purchases.setStock(p.id, total);
+                                setAdminProducts((old) => old.map((item) =>
+                                  item.id === p.id ? { ...item, ...stock } : item));
+                                notify("Estoque atualizado.");
                               }}
                             />
                           ))}
@@ -2515,15 +2486,15 @@ function ProductForm({
 
 function StockRow({
   product,
-  reserved,
   onSave,
 }: {
   product: Product;
-  reserved: number;
-  onSave: (n: number) => void;
+  onSave: (n: number) => Promise<void>;
 }) {
+  const reserved = product.baseReserved;
   const [value, setValue] = useState(String(product.total));
   const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
   return (
     <tr>
       <td>
@@ -2545,15 +2516,21 @@ function StockRow({
       <td>
         <form
           className="stock-adjust"
-          onSubmit={(e) => {
+          onSubmit={async (e) => {
             e.preventDefault();
+            if (saving) return;
             const n = Number(value);
-            if (value === "" || !Number.isInteger(n) || n < 0)
-              return setError("Informe um número inteiro não negativo.");
-            if (n < reserved)
-              return setError(`O total não pode ser inferior às ${reserved} unidades reservadas.`);
+            if (value === "" || !Number.isInteger(n) || n < 0 || n > 1_000_000)
+              return setError("Informe um número inteiro entre 0 e 1.000.000.");
             setError("");
-            onSave(n);
+            setSaving(true);
+            try {
+              await onSave(n);
+            } catch (failure) {
+              setError(failure instanceof CartError ? failure.message : "Não foi possível salvar o estoque.");
+            } finally {
+              setSaving(false);
+            }
           }}
         >
           <input
@@ -2563,8 +2540,8 @@ function StockRow({
             value={value}
             onChange={(e) => setValue(e.target.value)}
           />
-          <button className="secondary" type="submit">
-            Salvar
+          <button className="secondary" type="submit" disabled={saving}>
+            {saving ? "Salvando…" : "Salvar"}
           </button>
           {error && (
             <small className="field-error" role="alert">
