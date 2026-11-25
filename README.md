@@ -99,3 +99,9 @@ Para repetir a comparação do índice wildcard IX05 com os índices compostos, 
 ```powershell
 .\.venv\Scripts\python.exe -X utf8 -m validacao.indices "$env:TEMP\techparts-indices.json"
 ```
+
+Com o MongoDB ativo, a corrida entre remoção do catálogo e reserva pode ser reproduzida pelo comando abaixo. O teste inicia os três serviços em portas de validação, usa bases temporárias e verifica a reconciliação na leitura do carrinho.
+
+```powershell
+.\.venv\Scripts\python.exe -X utf8 -m validacao.corrida
+```

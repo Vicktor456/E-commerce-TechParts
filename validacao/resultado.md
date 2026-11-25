@@ -53,3 +53,17 @@ Uma repetição preliminar, com pausa de 200 ms entre requisições, teve erros 
 | Chipset X670E, presente em 20 produtos de teste | 935 | 20 | IX05 e ordenação dos resultados |
 
 O IX05 ocupou 40 KiB nesse ensaio. A decisão se baseou na redução da leitura para o filtro seletivo e na preservação dos planos compostos nas outras consultas. [Planos e medições do IX05](indices.json)
+
+### Remoção concorrente com reserva (RN09)
+
+O teste isolado executou os três serviços e o MongoDB. A resposta interna do catálogo foi retida logo após a leitura de um produto ativo com três unidades em estoque. A remoção lógica foi confirmada enquanto a reserva aguardava essa resposta. Em seguida, a resposta capturada foi liberada para o Cart Service concluir a requisição.
+
+| Ponto verificado | Evidência |
+|---|---|
+| Remoção antes da gravação da reserva | A consulta pública retornou HTTP 404 e o estoque ainda tinha zero unidades reservadas. |
+| Reserva que já estava em andamento | O Cart Service respondeu HTTP 204 e gravou uma unidade no carrinho e no saldo reservado. |
+| Reconciliação | Ao consultar o carrinho, o Cart Service buscou a situação atual do produto e retornou o item com `active: false`. A interface usa esse estado para avisar o cliente e desabilitar o aumento de quantidade. |
+| Tentativas iniciadas após a remoção | Tanto um aumento de quantidade no carrinho existente quanto uma reserva por outro cliente retornaram HTTP 409. O saldo reservado continuou em uma unidade. |
+| Liberação e repetição da retirada | A primeira retirada voltou o saldo reservado para zero. Repetir a mesma requisição manteve o saldo em zero. O histórico de preço permaneceu disponível na administração. |
+
+A reconciliação ocorre na próxima leitura do carrinho. A remoção lógica do produto mantém a reserva em andamento até a retirada do item ou a expiração do carrinho. As alterações do carrinho e do estoque são transacionais no Cart Service. Catálogo e carrinho se comunicam por HTTP, com a janela de concorrência descrita na especificação.
