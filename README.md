@@ -4,53 +4,74 @@ Projeto acadêmico de e-commerce de componentes e periféricos de informática. 
 
 ## Execução local
 
-Pré-requisitos: Node.js 22, pnpm 10, Python 3.14 e Docker com Compose. No Windows, abra o Docker Desktop antes de executar os comandos abaixo no PowerShell, a partir da raiz do projeto.
+Você precisa de **Docker Desktop com Compose**, **Python 3.14**, **Node.js 22.12 ou posterior** e **pnpm 10**. Os comandos abaixo são para o PowerShell no Windows. Abra o Docker Desktop e, no VS Code, abra a pasta raiz do projeto, onde estão `compose.yaml` e `package.json`.
+
+### 1. Inicie o MongoDB
+
+No primeiro terminal, execute:
 
 ```powershell
 docker compose up -d
 docker compose exec mongo mongosh --quiet --eval "db.hello().isWritablePrimary"
 ```
 
-O comando do MongoDB deve retornar `true` após a inicialização do replica set local.
+Aguarde o segundo comando retornar `true`. Se retornar `false` logo após iniciar, aguarde alguns segundos e repita a consulta. Se continuar falhando, execute `docker compose logs mongo mongo-init` para conferir a inicialização. O Compose sobe o MongoDB e configura o replica set `rs0`. As APIs serão iniciadas no passo 3.
 
-Instale as dependências Python, carregue os produtos de demonstração e inicie a API:
+### 2. Prepare o projeto no primeiro uso
+
+No mesmo terminal, crie o ambiente virtual, instale as dependências e carregue os produtos e estoques de demonstração.
 
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r backend/requirements.txt
+pnpm install --frozen-lockfile
 .\.venv\Scripts\python.exe -m backend.catalog_service.seed
 .\.venv\Scripts\python.exe -m backend.cart_service.seed
-.\.venv\Scripts\python.exe -m uvicorn backend.catalog_service.main:app --reload
 ```
 
-Em outro terminal, inicie o Auth Service na porta 8001:
+Os comandos usam diretamente o Python da pasta `.venv`. As cargas podem ser repetidas sem sobrescrever os produtos ou estoques existentes. O catálogo migra automaticamente históricos de demonstração antigos para `catalogo.historico_precos`.
 
-```powershell
-.\.venv\Scripts\python.exe -m uvicorn backend.auth_service.main:app --reload --port 8001
-```
-
-Para criar um administrador no MongoDB local, execute o comando abaixo e escolha uma senha de pelo menos 15 caracteres. A senha é solicitada de forma interativa.
+Para acessar a área administrativa, crie uma conta uma vez. O script solicita e confirma a senha, que deve ter pelo menos 15 caracteres. Se você já tem uma conta administrativa nessa base, use as credenciais existentes.
 
 ```powershell
 .\.venv\Scripts\python.exe -m backend.auth_service.create_admin --email admin@techparts.local
 ```
 
-Em outro terminal, inicie o Cart Service na porta 8002:
+### 3. Inicie as três APIs em terminais separados
+
+Use um terminal do PowerShell para cada comando, sempre na raiz do projeto. Abra os terminais adicionais pelo botão **+** no painel **Terminal** do VS Code. Mantenha os três processos em execução e aguarde `Application startup complete` em cada terminal.
+
+**Terminal 1 — Auth Service (porta 8001)**
 
 ```powershell
-.\.venv\Scripts\python.exe -m uvicorn backend.cart_service.main:app --reload --port 8002
+.\.venv\Scripts\python.exe -m uvicorn backend.auth_service.main:app --host 127.0.0.1 --port 8001
 ```
 
-Com os três serviços rodando, inicie o frontend em outro terminal:
+**Terminal 2 — Cart Service (porta 8002)**
 
 ```powershell
-pnpm install --frozen-lockfile
+.\.venv\Scripts\python.exe -m uvicorn backend.cart_service.main:app --host 127.0.0.1 --port 8002
+```
+
+**Terminal 3 — Catalog Service (porta 8000)**
+
+```powershell
+.\.venv\Scripts\python.exe -m uvicorn backend.catalog_service.main:app --host 127.0.0.1 --port 8000
+```
+
+### 4. Inicie o frontend e confira o catálogo
+
+**Terminal 4 — Frontend**
+
+```powershell
 pnpm dev
 ```
 
-Abra o endereço exibido pelo Vite. A API lê produtos ativos de `catalogo.produtos` e faz a busca, a filtragem e a paginação no MongoDB. A documentação da API está em `http://127.0.0.1:8000/docs`.
+Abra o endereço exibido pelo Vite, normalmente [http://localhost:5173/](http://localhost:5173/). Mantenha os quatro terminais abertos enquanto usar o sistema. Com os dados de demonstração carregados, o catálogo deve exibir produtos e disponibilizar os filtros.
 
-As cargas iniciais podem ser executadas novamente sem sobrescrever produtos nem estoques existentes. O serviço migra os históricos de demonstração existentes para `catalogo.historico_precos` automaticamente.
+Se o Vite mostrar `ECONNREFUSED 127.0.0.1:8000`, confira se o Catalog Service está em execução no terminal 3 e se a inicialização terminou. Para verificar a porta diretamente, abra [a documentação da API do catálogo](http://127.0.0.1:8000/docs). Depois, recarregue a página do TechParts. As portas `8001` e `8002` correspondem às APIs de autenticação e carrinho/estoque.
+
+Para voltar a executar o sistema com a mesma base e as dependências já instaladas, repita os passos **1, 3 e 4**.
 
 ### Catálogo e administração
 
