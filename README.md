@@ -73,27 +73,6 @@ Se o Vite mostrar `ECONNREFUSED 127.0.0.1:8000`, confira se o Catalog Service es
 
 Para voltar a executar o sistema com a mesma base e as dependências já instaladas, repita os passos **1, 3 e 4**.
 
-### Catálogo e administração
-
-- No catálogo, selecione **Placas-mãe** e combine **AM5** com **DDR5**. A API aplica os dois filtros técnicos por igualdade.
-- A busca usa termos no nome e na descrição, com o índice textual IX06 configurado para português. As consultas Q01, Q02 e Q04 retornam `nextCursor` quando há mais resultados. Envie esse valor em `cursor` com os mesmos filtros da primeira página. A API também aceita `pagina` para clientes existentes.
-- Na área administrativa, cadastre um produto e edite seu preço. O MongoDB armazena o preço como decimal e registra o preço inicial e as mudanças efetivas em `catalogo.historico_precos`, na mesma transação que grava o produto. Para manter o histórico, faça mudanças de preço pela API administrativa ou pelo formulário.
-- Abra o histórico no detalhe ou na edição administrativa e selecione o período. Para consultar um intervalo específico na API, use `inicio` (inclusive) e `fim` (exclusivo) em UTC.
-- Ao remover um produto, a API o marca como inativo. A administração ainda pode consultar seu histórico e reativá-lo.
-
-O cadastro e o login usam `auth.usuarios`, com índice único no e-mail normalizado e senhas verificadas com scrypt. A sessão expira em oito horas e é persistida em `auth.sessoes`. O logout revoga a sessão. A rota `GET /api/catalogo/admin/produtos` consulta o Auth Service para confirmar o perfil antes de retornar os dados. A documentação do Auth Service está em `http://127.0.0.1:8001/docs`.
-
-### Estoque e carrinho
-
-- O Cart Service persiste os itens em `compras.carrinhos` e o saldo em `compras.estoques`, vinculados ao código estável do produto do catálogo. A primeira carga importa o estoque total de demonstração com zero reservas.
-- Adicionar, alterar ou remover um item ajusta a reserva na mesma transação. O cliente acessa seu próprio carrinho, e apenas administradores podem ajustar o estoque. Produtos ativos com saldo zero continuam listados como indisponíveis.
-- Ao abrir o carrinho, os preços e a situação dos produtos vêm do catálogo. A tela identifica itens removidos. Remover um item libera sua reserva.
-- O servidor encerra o carrinho após 30 minutos de inatividade. Cliques, uso do teclado ou alterações no carrinho renovam o prazo. Consultas automáticas da tela apenas leem o estado.
-- O Cart Service procura carrinhos vencidos a cada 15 segundos e libera as reservas em uma transação com o encerramento. Uma gravação verifica o prazo e o identificador do carrinho, mesmo entre duas execuções da rotina. Após o vencimento, escolha **Iniciar novo carrinho**.
-- Documentação da API de compras em `http://127.0.0.1:8002/docs`.
-
-O proxy Vite encaminha as chamadas públicas aos três serviços. Em uma implantação com HTTPS, configure `AUTH_COOKIE_SECURE=1` e encaminhe `/api/auth`, `/api/catalogo`, `/api/carrinho` e `/api/estoque` pelo mesmo domínio do frontend. Mantenha as rotas `/_interno` na rede dos serviços. Para alterar as URLs internas, configure `AUTH_SERVICE_URL`, `CATALOG_SERVICE_URL` e `CART_SERVICE_URL` nos serviços que as consultam.
-
 ## Validação da prova de conceito
 
 Com o MongoDB local em execução, instale as ferramentas de validação em uma pasta temporária e execute a suíte na raiz do projeto:
